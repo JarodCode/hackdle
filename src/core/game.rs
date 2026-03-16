@@ -173,15 +173,8 @@ impl Game {
             self.player.take_damage(damage);
             self.vfx.trigger_shake(hits as f32 * 5.0 + 5.0, 0.3);
             if !self.player.is_alive() {
-                play_sound(
-                    &self.assets.sound_game_over,
-                    PlaySoundParams {
-                        looped: false,
-                        volume: 1.0,
-                    },
-                );
                 self.handle_player_defeat();
-            }
+            }   
         }
     }
 
@@ -416,6 +409,14 @@ impl Game {
     }
 
     fn handle_player_defeat(&mut self) {
+        macroquad::audio::play_sound(
+            &self.assets.sound_game_over,
+            macroquad::audio::PlaySoundParams {
+                looped: false,
+                volume: 0.8,
+            },
+        );
+
         self.wave = None;
         self.record_current_run();
         self.state = GameState::GameOver;
