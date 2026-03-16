@@ -76,15 +76,24 @@ impl Game {
             wave.update(dt, player_pos);
 
             // Vérifie si un virus a atteint le joueur
+            let mut damage_taken = 0u32;
             wave.entries.retain(|e| {
                 if e.virus.distance_to(player_pos) < 25.0 {
+                    damage_taken += 20; // chaque virus qui touche fait 20 dégâts
                     false
                 } else {
                     true
                 }
             });
 
-            if wave.is_complete() {
+            if damage_taken > 0 {
+                self.player.take_damage(damage_taken);
+            }
+
+            // La mort prend la priorité sur la fin de vague
+            if !self.player.is_alive() {
+                self.state = GameState::GameOver;
+            } else if wave.is_complete() {
                 self.state = GameState::BetweenWaves;
             }
         }
@@ -130,7 +139,11 @@ impl Game {
     fn draw_shop(&self) {}
 
     fn draw_game_over(&self) {
-        draw_text("GAME OVER — Entrée pour recommencer", 20.0, screen_height() / 2.0, 28.0, RED);
+        let cx = screen_width() / 2.0;
+        let cy = screen_height() / 2.0;
+        draw_text("GAME OVER", cx - 80.0, cy - 20.0, 48.0, RED);
+        let sub = format!("Vague {} atteinte — Entrée pour recommencer", self.wave_number);
+        draw_text(&sub, cx - 160.0, cy + 30.0, 20.0, WHITE);
     }
 
     // --- Helpers ---
