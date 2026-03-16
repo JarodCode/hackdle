@@ -1,3 +1,4 @@
+mod accounts;
 mod core;
 mod data;
 mod ui;
