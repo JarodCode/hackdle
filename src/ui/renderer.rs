@@ -17,21 +17,17 @@ fn draw_health_bar(player: &Player, font: Option<&Font>) {
 
     let health_ratio = player.health.0 as f32 / 100.0;
 
-    // Stylized Cyberpunk Health Bar
-    let bars_total = 10;
-    let bars_active = (health_ratio * bars_total as f32).ceil() as i32;
-    
-    let mut bar_content = String::new();
-    for i in 0..bars_total {
-        if i < bars_active {
-            bar_content.push('|');
-        } else {
-            bar_content.push(' ');
-        }
-    }
-    
-    let color = if health_ratio > 0.5 { GREEN } else if health_ratio > 0.25 { YELLOW } else { RED };
-    let text = format!("SYS.INTEGRITY [{}] {:03}%", bar_content, player.health.0);
+    let color = if health_ratio > 0.75 {
+        GREEN
+    } else if health_ratio > 0.5 {
+        YELLOW
+    } else if health_ratio > 0.25 {
+        ORANGE
+    } else {
+        RED
+    };
+
+    let text = format!("SYS.INTEGRITY {:03}%", player.health.0);
     
     draw_text_ex(
         &text,
@@ -44,6 +40,17 @@ fn draw_health_bar(player: &Player, font: Option<&Font>) {
             ..Default::default()
         },
     );
+
+    let bar_width = 200.0;
+    let bar_height = 10.0;
+    let bar_y = y + 24.0;
+    
+    // Background bar
+    draw_rectangle(x, bar_y, bar_width, bar_height, DARKGRAY);
+    // Active health
+    draw_rectangle(x, bar_y, bar_width * health_ratio, bar_height, color);
+    // Outline
+    draw_rectangle_lines(x, bar_y, bar_width, bar_height, 2.0, WHITE);
 }
 
 fn draw_wave_number(wave_number: u32, font: Option<&Font>) {

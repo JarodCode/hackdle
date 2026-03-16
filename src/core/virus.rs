@@ -35,6 +35,10 @@ impl Virus {
     }
 
     pub fn draw(&self, assets: &crate::core::assets::GameAssets) {
+        self.draw_with_offset(assets, 0.0, 0.0, WHITE);
+    }
+
+    pub fn draw_with_offset(&self, assets: &crate::core::assets::GameAssets, offset_x: f32, offset_y: f32, color_override: Color) {
         let tex = match self.kind {
             VirusKind::Fast => &assets.virus_fast,
             VirusKind::Classic => &assets.virus_classic,
@@ -47,9 +51,9 @@ impl Virus {
 
         draw_texture_ex(
             tex,
-            self.position.x - radius,
-            self.position.y - radius,
-            WHITE,
+            self.position.x - radius + offset_x,
+            self.position.y - radius + offset_y,
+            color_override,
             DrawTextureParams {
                 dest_size: Some(vec2(size, size)),
                 ..Default::default()

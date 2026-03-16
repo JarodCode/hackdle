@@ -65,13 +65,13 @@ impl VfxManager {
         }
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&self, offset: Vec2) {
         // Draw particles
         for p in &self.particles {
             let alpha = p.lifetime / p.max_lifetime;
             let mut c = p.color;
             c.a = alpha;
-            draw_rectangle(p.position.x - p.size / 2.0, p.position.y - p.size / 2.0, p.size, p.size, c);
+            draw_rectangle(p.position.x - p.size / 2.0 + offset.x, p.position.y - p.size / 2.0 + offset.y, p.size, p.size, c);
         }
 
         // Draw lasers
@@ -80,12 +80,12 @@ impl VfxManager {
             let mut c = l.color;
             c.a = alpha;
             let thickness = alpha * 4.0;
-            draw_line(l.start.x, l.start.y, l.end.x, l.end.y, thickness, c);
+            draw_line(l.start.x + offset.x, l.start.y + offset.y, l.end.x + offset.x, l.end.y + offset.y, thickness, c);
             
             // Add a glow around the laser
             let mut glow = c;
             glow.a = alpha * 0.3;
-            draw_line(l.start.x, l.start.y, l.end.x, l.end.y, thickness * 3.0, glow);
+            draw_line(l.start.x + offset.x, l.start.y + offset.y, l.end.x + offset.x, l.end.y + offset.y, thickness * 3.0, glow);
         }
     }
 

@@ -6,6 +6,7 @@ use crate::accounts::UserProfile;
 use crate::core::assets::GameAssets;
 use crate::core::player::Player;
 use crate::core::vfx::VfxManager;
+use macroquad::audio::{play_sound, PlaySoundParams};
 use crate::core::wave::Wave;
 use crate::data::{SaveData, Storage};
 use crate::ui::renderer;
@@ -75,11 +76,13 @@ impl Game {
     pub fn draw(&self) {
         clear_background(BLACK);
         
-        // Draw the background texture scaled to the screen size
+        let shake = self.vfx.get_shake_offset();
+
+        // Draw the background texture scaled to the screen size, applying shake
         draw_texture_ex(
             &self.assets.background,
-            0.0,
-            0.0,
+            shake.x,
+            shake.y,
             WHITE,
             DrawTextureParams {
                 dest_size: Some(vec2(screen_width(), screen_height())),
@@ -87,32 +90,16 @@ impl Game {
             },
         );
 
-        let shake = self.vfx.get_shake_offset();
-        
-        // We only want to offset the default camera, not recreate it from scratch 
-        // which can mess up the render target orientation.
-        let mut cam = Camera2D {
-            zoom: vec2(2.0 / screen_width(), 2.0 / screen_height()),
-            target: vec2(screen_width() / 2.0, screen_height() / 2.0) + shake,
-            offset: vec2(0.0, 0.0),
-            rotation: 0.0,
-            render_target: None,
-            viewport: None,
-        };
-        set_camera(&cam);
-
         match self.state {
             GameState::Login => self.draw_login(),
             GameState::MainMenu => self.draw_menu(),
-            GameState::InWave => self.draw_wave(),
+            GameState::InWave => self.draw_wave(shake),
             GameState::BetweenWaves => self.draw_between_waves(),
             GameState::Shop => self.draw_shop(),
             GameState::GameOver => self.draw_game_over(),
         }
         
-        self.vfx.draw();
-        
-        set_default_camera();
+        self.vfx.draw(shake);
     }
 
     // --- Update par état ---
@@ -160,7 +147,7 @@ impl Game {
 
         if let Some(c) = get_char_pressed() {
             if let Some(wave) = &mut self.wave {
-                wave.type_char(c, &mut self.vfx, player_pos);
+                wave.type_char(c, &mut self.vfx, player_pos, &self.assets);
             }
         }
         let mut hits = 0u32;
@@ -186,6 +173,13 @@ impl Game {
             self.player.take_damage(damage);
             self.vfx.trigger_shake(hits as f32 * 5.0 + 5.0, 0.3);
             if !self.player.is_alive() {
+                play_sound(
+                    &self.assets.sound_game_over,
+                    PlaySoundParams {
+                        looped: false,
+                        volume: 1.0,
+                    },
+                );
                 self.handle_player_defeat();
             }
         }
@@ -261,11 +255,11 @@ impl Game {
         renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
     }
 
-    fn draw_wave(&self) {
+    fn draw_wave(&self, offset: Vec2) {
         if let Some(wave) = &self.wave {
-            wave.draw(&self.assets);
+            wave.draw(&self.assets, offset);
         }
-        self.player.draw(&self.assets);
+        self.player.draw(&self.assets, offset);
         renderer::draw_hud(&self.player, self.wave_number, Some(&self.assets.font));
     }
 
