@@ -20,7 +20,7 @@ impl Virus {
         // Les stats varient selon le type d'ennemi
         let (speed, health) = match kind {
             VirusKind::Fast    => (50.0,  1),
-            VirusKind::Classic => (25.0,  2),
+            VirusKind::Classic => (75.0,  2),
             VirusKind::Heavy   => (15.0,  4),
             VirusKind::Boss    => (10.0, 10),
         };
