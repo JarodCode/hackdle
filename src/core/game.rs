@@ -275,14 +275,58 @@ impl Game {
     fn draw_shop(&self) {}
 
     fn draw_game_over(&self) {
-        let message = format!("SYSTEM FAILURE // WAVES SURVIVED: {}", self.wave_number);
-        draw_text_ex(&message, 20.0, screen_height() / 2.0, TextParams { font_size: 28, font: Some(&self.assets.font), color: RED, ..Default::default() });
+        // 1. Assombrir tout l'écran avec un filtre semi-transparent
+        draw_rectangle(0.0, 0.0, screen_width(), screen_height(), Color::new(0.0, 0.0, 0.0, 0.8));
+
+        let center_x = screen_width() / 2.0;
+        let center_y = screen_height() / 2.0;
+
+        // 2. Gros titre rouge bien centré
+        let title = "SYSTEM FAILURE";
+        let title_dim = measure_text(title, Some(&self.assets.font), 64, 1.0);
         draw_text_ex(
-            "PRESS <ENTER> TO RETRY | <L> SWITCH AGENT",
-            20.0,
-            screen_height() / 2.0 + 36.0,
-            TextParams { font_size: 20, font: Some(&self.assets.font), color: GRAY, ..Default::default() },
+            title,
+            center_x - title_dim.width / 2.0,
+            center_y - 100.0,
+            TextParams { font_size: 64, font: Some(&self.assets.font), color: RED, ..Default::default() }
         );
+
+        // 3. Stats de la partie
+        let stats = format!("WAVES SURVIVED: {:03}", self.wave_number);
+        let stats_dim = measure_text(&stats, Some(&self.assets.font), 32, 1.0);
+        draw_text_ex(
+            &stats,
+            center_x - stats_dim.width / 2.0,
+            center_y - 20.0,
+            TextParams { font_size: 32, font: Some(&self.assets.font), color: WHITE, ..Default::default() }
+        );
+
+        // 4. Options d'action ("Boutons")
+        let option1 = "> PRESS [ENTER] TO INITIALIZE NEW RUN <";
+        let option2 = "PRESS [L] TO DISCONNECT AGENT";
+
+        let op1_dim = measure_text(option1, Some(&self.assets.font), 24, 1.0);
+        let op2_dim = measure_text(option2, Some(&self.assets.font), 20, 1.0);
+
+        // Effet de clignotement fluide pour "Play Again"
+        let alpha = (get_time() * 4.0).sin().abs() as f32; // Oscille entre 0.0 et 1.0
+        let mut yellow_blink = YELLOW;
+        yellow_blink.a = 0.4 + (alpha * 0.6); // L'opacité varie entre 0.4 et 1.0
+
+        draw_text_ex(
+            option1,
+            center_x - op1_dim.width / 2.0,
+            center_y + 80.0,
+            TextParams { font_size: 24, font: Some(&self.assets.font), color: yellow_blink, ..Default::default() }
+        );
+
+        draw_text_ex(
+            option2,
+            center_x - op2_dim.width / 2.0,
+            center_y + 130.0,
+            TextParams { font_size: 20, font: Some(&self.assets.font), color: GRAY, ..Default::default() }
+        );
+
         renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
     }
 
