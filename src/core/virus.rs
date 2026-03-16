@@ -22,7 +22,8 @@ impl Virus {
             VirusKind::Fast    => (50.0,  1),
             VirusKind::Classic => (25.0,  2),
             VirusKind::Heavy   => (15.0,  4),
-            VirusKind::Boss    => (10.0, 10),
+            // 4 PV => 4 mots successifs à taper pour vaincre le boss
+            VirusKind::Boss    => (10.0,  4),
         };
 
         Self { position, kind, speed, health, word }

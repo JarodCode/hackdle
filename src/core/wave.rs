@@ -5,11 +5,15 @@ use crate::data::words::{Difficulty, WordList};
 use crate::ui::input::{TypingState, TypingResult};
 use crate::ui::renderer;
 
+const BOSS_EVERY_N_WAVES: u32 = 5;
+
 pub struct VirusEntry {
     pub virus: Virus,
     pub typing: TypingState,
     // true si ce virus est en cours de frappe
     pub active: bool,
+    // Phase de bouclier du boss (0, 1, 2, ...)
+    pub boss_phase: usize,
 }
 
 pub struct Wave {
@@ -24,6 +28,10 @@ impl Wave {
     }
 
     fn spawn_viruses(wave_number: u32) -> Vec<VirusEntry> {
+        if Self::is_boss_wave(wave_number) {
+            return vec![Self::spawn_boss(wave_number)];
+        }
+
         let count = 3 + wave_number as usize;
         let mut entries = Vec::with_capacity(count);
 
@@ -32,10 +40,38 @@ impl Wave {
             let word = WordList::pick(Difficulty::Easy, i).to_string();
             let typing = TypingState::new(word.clone());
             let virus = Virus::new(position, VirusKind::Classic, word);
-            entries.push(VirusEntry { virus, typing, active: false });
+            entries.push(VirusEntry {
+                virus,
+                typing,
+                active: false,
+                boss_phase: 0,
+            });
         }
 
         entries
+    }
+
+    fn is_boss_wave(wave_number: u32) -> bool {
+        wave_number > 0 && wave_number % BOSS_EVERY_N_WAVES == 0
+    }
+
+    fn spawn_boss(wave_number: u32) -> VirusEntry {
+        let position = Vec2::new(screen_width() / 2.0, 90.0);
+        let word = Self::boss_word_for_phase(wave_number, 0).to_string();
+        let typing = TypingState::new(word.clone());
+        let virus = Virus::new(position, VirusKind::Boss, word);
+
+        VirusEntry {
+            virus,
+            typing,
+            active: false,
+            boss_phase: 0,
+        }
+    }
+
+    fn boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str {
+        // Hard words pour renforcer l'identité boss
+        WordList::pick(Difficulty::Hard, wave_number as usize + phase)
     }
 
     fn spawn_position(index: usize, total: usize) -> Vec2 {
@@ -60,9 +96,7 @@ impl Wave {
                     }
                     TypingResult::Complete => {
                         any_correct = true;
-                        let hp = entry.virus.health;
-                        entry.virus.take_damage(hp);
-                        entry.active = false;
+                        Self::on_word_complete(self.number, entry);
                     }
                     TypingResult::Wrong => {
                         // Ce virus diverge — on le désactive et reset
@@ -90,8 +124,7 @@ impl Wave {
                     }
                     TypingResult::Complete => {
                         // Mot d'une seule lettre
-                        let hp = entry.virus.health;
-                        entry.virus.take_damage(hp);
+                        Self::on_word_complete(self.number, entry);
                         found = true;
                     }
                     TypingResult::Wrong => {
@@ -133,5 +166,27 @@ impl Wave {
 
     pub fn is_complete(&self) -> bool {
         self.entries.is_empty()
+    }
+
+    fn on_word_complete(wave_number: u32, entry: &mut VirusEntry) {
+        if matches!(entry.virus.kind, VirusKind::Boss) {
+            // Un mot validé retire 1 couche de bouclier au boss.
+            entry.virus.take_damage(1);
+
+            if entry.virus.is_alive() {
+                entry.boss_phase += 1;
+                let next_word = Self::boss_word_for_phase(wave_number, entry.boss_phase).to_string();
+                entry.virus.word = next_word.clone();
+                entry.typing = TypingState::new(next_word);
+                entry.active = true;
+            } else {
+                entry.active = false;
+            }
+            return;
+        }
+
+        let hp = entry.virus.health;
+        entry.virus.take_damage(hp);
+        entry.active = false;
     }
 }
