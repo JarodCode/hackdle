@@ -1,5 +1,6 @@
 use macroquad::prelude::*;
 
+#[derive(PartialEq)]
 pub enum VirusKind {
     Fast,
     Classic,
@@ -19,10 +20,10 @@ impl Virus {
     pub fn new(position: Vec2, kind: VirusKind, word: String) -> Self {
         // Les stats varient selon le type d'ennemi
         let (speed, health) = match kind {
-            VirusKind::Fast    => (50.0,  1),
-            VirusKind::Classic => (75.0,  2),
-            VirusKind::Heavy   => (15.0,  4),
-            VirusKind::Boss    => (10.0, 10),
+            VirusKind::Fast    => (120.0, 1),
+            VirusKind::Classic => (70.0,  2),
+            VirusKind::Heavy   => (40.0,  4),
+            VirusKind::Boss    => (25.0, 10),
         };
 
         Self { position, kind, speed, health, word }

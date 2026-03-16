@@ -77,14 +77,19 @@ impl Game {
 
             // Vérifie si un virus a atteint le joueur
             let mut damage_taken = 0u32;
+            let mut kills = 0usize;
             wave.entries.retain(|e| {
                 if e.virus.distance_to(player_pos) < 25.0 {
-                    damage_taken += 20; // chaque virus qui touche fait 20 dégâts
+                    damage_taken += 20;
+                    kills += 1;
                     false
                 } else {
                     true
                 }
             });
+            for _ in 0..kills {
+                wave.register_kill();
+            }
 
             if damage_taken > 0 {
                 self.player.take_damage(damage_taken);

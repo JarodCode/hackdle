@@ -22,22 +22,23 @@ pub struct Wave {
     spawn_timer: f32,
     spawn_tick: f32,
     elapsed: f32,        // temps écoulé — sert à faire monter la probabilité
-    word_index: usize,
 }
 
 impl Wave {
     pub fn new(number: u32) -> Self {
-        Self {
+        let mut wave = Self {
             number,
             entries: Vec::new(),
             to_kill: Self::kills_required(number),
             killed: 0,
             spawned: 0,
-            spawn_timer: 0.0,
+            spawn_timer: 0.5,
             spawn_tick: 0.5,
             elapsed: 0.0,
-            word_index: 0,
-        }
+        };
+        // Spawn immédiat du premier virus sans attendre le premier tick
+        wave.spawn_one();
+        wave
     }
 
     // Nombre de virus à tuer par vague
@@ -89,6 +90,47 @@ impl Wave {
         }
     }
 
+    // Choisit un type de virus selon la vague — nouveaux types débloqués progressivement
+    fn pick_kind(&self) -> VirusKind {
+        let roll: f32 = thread_rng().gen_range(0.0..1.0);
+
+        match self.number {
+            // Vague 1-2 : uniquement Classic
+            1..=2 => VirusKind::Classic,
+
+            // Vague 3-4 : Classic majoritaire, quelques Fast
+            3..=4 => {
+                if roll < 0.25 { VirusKind::Fast }
+                else { VirusKind::Classic }
+            }
+
+            // Vague 5-6 : Fast et Classic, premiers Heavy
+            5..=6 => {
+                if roll < 0.20 { VirusKind::Fast }
+                else if roll < 0.35 { VirusKind::Heavy }
+                else { VirusKind::Classic }
+            }
+
+            // Vague 7+ : tous les types, Boss possible
+            _ => {
+                if roll < 0.20 { VirusKind::Fast }
+                else if roll < 0.40 { VirusKind::Heavy }
+                else if roll < 0.50 { VirusKind::Boss }
+                else { VirusKind::Classic }
+            }
+        }
+    }
+
+    // Difficulté des mots selon le type de virus
+    fn pick_difficulty(kind: &VirusKind) -> Difficulty {
+        match kind {
+            VirusKind::Fast    => Difficulty::Easy,
+            VirusKind::Classic => Difficulty::Medium,
+            VirusKind::Heavy   => Difficulty::Hard,
+            VirusKind::Boss    => Difficulty::Hard,
+        }
+    }
+
     fn spawn_one(&mut self) {
         let angle: f32 = thread_rng().gen_range(0.0..std::f32::consts::TAU);
         let margin = 60.0;
@@ -98,12 +140,15 @@ impl Wave {
         let cy = screen_height() / 2.0;
         let position = Vec2::new(cx + angle.cos() * radius, cy + angle.sin() * radius);
 
-        let word = WordList::pick(Difficulty::Easy, self.word_index).to_string();
-        self.word_index += 1;
+        let kind = self.pick_kind();
+        let difficulty = Self::pick_difficulty(&kind);
+        let list = WordList::get(difficulty);
+        let idx = thread_rng().gen_range(0..list.len());
+        let word = list[idx].to_string();
         self.spawned += 1;
 
         let typing = TypingState::new(word.clone());
-        let virus = Virus::new(position, VirusKind::Classic, word);
+        let virus = Virus::new(position, kind, word);
         self.entries.push(VirusEntry { virus, typing, active: false });
     }
 
@@ -200,6 +245,11 @@ impl Wave {
         let x = screen_width() / 2.0 - 30.0;
         let y = screen_height() - 16.0;
         draw_text(&text, x, y, 20.0, YELLOW);
+    }
+
+    // Appelé depuis game.rs quand un virus atteint le joueur
+    pub fn register_kill(&mut self) {
+        self.killed += 1;
     }
 
     pub fn is_complete(&self) -> bool {
