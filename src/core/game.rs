@@ -3,10 +3,12 @@ use std::cmp::Ordering;
 use macroquad::prelude::*;
 
 use crate::accounts::UserProfile;
+use crate::core::assets::GameAssets;
 use crate::core::player::Player;
 use crate::core::wave::Wave;
 use crate::data::{SaveData, Storage};
 use crate::ui::renderer;
+use std::rc::Rc;
 
 const DAMAGE_PER_HIT: u32 = 10;
 const MAX_USERNAME_LEN: usize = 16;
@@ -31,10 +33,12 @@ pub struct Game {
     current_user: Option<usize>,
     login_input: String,
     run_recorded: bool,
+    assets: Rc<GameAssets>,
 }
 
 impl Game {
     pub async fn new() -> Self {
+        let assets = Rc::new(GameAssets::load().await);
         let save_data = Storage::load();
         let leaderboard = Self::build_leaderboard(&save_data.profiles);
 
@@ -48,6 +52,7 @@ impl Game {
             current_user: None,
             login_input: String::new(),
             run_recorded: true,
+            assets,
         }
     }
 
@@ -64,6 +69,18 @@ impl Game {
 
     pub fn draw(&self) {
         clear_background(BLACK);
+        
+        // Draw the background texture scaled to the screen size
+        draw_texture_ex(
+            &self.assets.background,
+            0.0,
+            0.0,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(screen_width(), screen_height())),
+                ..Default::default()
+            },
+        );
 
         match self.state {
             GameState::Login => self.draw_login(),
@@ -226,9 +243,9 @@ impl Game {
 
     fn draw_wave(&self) {
         if let Some(wave) = &self.wave {
-            wave.draw();
+            wave.draw(&self.assets);
         }
-        self.player.draw();
+        self.player.draw(&self.assets);
         renderer::draw_hud(&self.player, self.wave_number);
     }
 

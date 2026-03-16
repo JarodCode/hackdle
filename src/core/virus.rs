@@ -34,17 +34,27 @@ impl Virus {
         self.position += direction * self.speed * dt;
     }
 
-    pub fn draw(&self) {
-        let color = match self.kind {
-            VirusKind::Fast    => GREEN,
-            VirusKind::Classic => RED,
-            VirusKind::Heavy   => ORANGE,
-            VirusKind::Boss    => PURPLE,
+    pub fn draw(&self, assets: &crate::core::assets::GameAssets) {
+        let tex = match self.kind {
+            VirusKind::Fast => &assets.virus_fast,
+            VirusKind::Classic => &assets.virus_classic,
+            VirusKind::Heavy => &assets.virus_heavy,
+            VirusKind::Boss => &assets.virus_boss,
         };
 
-        // Placeholder visuel : un cercle coloré
-        // Le mot est affiché par wave.rs qui connaît l'état de frappe
-        draw_circle(self.position.x, self.position.y, self.radius(), color);
+        let radius = self.radius();
+        let size = radius * 2.0;
+
+        draw_texture_ex(
+            tex,
+            self.position.x - radius,
+            self.position.y - radius,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(size, size)),
+                ..Default::default()
+            },
+        );
     }
 
     pub fn radius(&self) -> f32 {

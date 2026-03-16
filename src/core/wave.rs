@@ -112,9 +112,9 @@ impl Wave {
         self.entries.retain(|e| e.virus.is_alive());
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&self, assets: &crate::core::assets::GameAssets) {
         for entry in self.entries.iter() {
-            entry.virus.draw();
+            entry.virus.draw(assets);
 
             let x = entry.virus.position.x - 20.0;
             let y = entry.virus.position.y - entry.virus.radius() - 8.0;

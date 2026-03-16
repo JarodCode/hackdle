@@ -22,9 +22,19 @@ impl Player {
         // Placeholder — le joueur ne bouge pas, c'est les virus qui se déplacent vers lui
     }
 
-    pub fn draw(&self) {
-        // Placeholder visuel : un cercle blanc au centre
-        draw_circle(self.position.x, self.position.y, 20.0, WHITE);
+    pub fn draw(&self, assets: &crate::core::assets::GameAssets) {
+        let tex = &assets.player;
+        let size = 40.0;
+        draw_texture_ex(
+            tex,
+            self.position.x - size / 2.0,
+            self.position.y - size / 2.0,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(size, size)),
+                ..Default::default()
+            },
+        );
     }
 
     pub fn is_alive(&self) -> bool {
