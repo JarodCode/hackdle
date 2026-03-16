@@ -66,6 +66,15 @@ impl Virus {
         }
     }
 
+    pub fn color(&self) -> Color {
+        match self.kind {
+            VirusKind::Fast    => GREEN,
+            VirusKind::Classic => RED,
+            VirusKind::Heavy   => ORANGE,
+            VirusKind::Boss    => PURPLE,
+        }
+    }
+
     pub fn is_alive(&self) -> bool {
         self.health > 0
     }

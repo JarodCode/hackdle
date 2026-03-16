@@ -5,6 +5,7 @@ use macroquad::prelude::*;
 use crate::accounts::UserProfile;
 use crate::core::assets::GameAssets;
 use crate::core::player::Player;
+use crate::core::vfx::VfxManager;
 use crate::core::wave::Wave;
 use crate::data::{SaveData, Storage};
 use crate::ui::renderer;
@@ -34,6 +35,7 @@ pub struct Game {
     login_input: String,
     run_recorded: bool,
     assets: Rc<GameAssets>,
+    vfx: VfxManager,
 }
 
 impl Game {
@@ -53,6 +55,7 @@ impl Game {
             login_input: String::new(),
             run_recorded: true,
             assets,
+            vfx: VfxManager::new(),
         }
     }
 
@@ -65,6 +68,8 @@ impl Game {
             GameState::Shop => self.update_shop(dt),
             GameState::GameOver => self.update_game_over(dt),
         }
+
+        self.vfx.update(dt);
     }
 
     pub fn draw(&self) {
@@ -82,6 +87,20 @@ impl Game {
             },
         );
 
+        let shake = self.vfx.get_shake_offset();
+        
+        // We only want to offset the default camera, not recreate it from scratch 
+        // which can mess up the render target orientation.
+        let mut cam = Camera2D {
+            zoom: vec2(2.0 / screen_width(), 2.0 / screen_height()),
+            target: vec2(screen_width() / 2.0, screen_height() / 2.0) + shake,
+            offset: vec2(0.0, 0.0),
+            rotation: 0.0,
+            render_target: None,
+            viewport: None,
+        };
+        set_camera(&cam);
+
         match self.state {
             GameState::Login => self.draw_login(),
             GameState::MainMenu => self.draw_menu(),
@@ -90,6 +109,10 @@ impl Game {
             GameState::Shop => self.draw_shop(),
             GameState::GameOver => self.draw_game_over(),
         }
+        
+        self.vfx.draw();
+        
+        set_default_camera();
     }
 
     // --- Update par état ---
@@ -133,13 +156,13 @@ impl Game {
             return;
         }
 
+        let player_pos = self.player.position;
+
         if let Some(c) = get_char_pressed() {
             if let Some(wave) = &mut self.wave {
-                wave.type_char(c);
+                wave.type_char(c, &mut self.vfx, player_pos);
             }
         }
-
-        let player_pos = self.player.position;
         let mut hits = 0u32;
 
         if let Some(wave) = &mut self.wave {
@@ -161,6 +184,7 @@ impl Game {
         if hits > 0 {
             let damage = DAMAGE_PER_HIT.saturating_mul(hits);
             self.player.take_damage(damage);
+            self.vfx.trigger_shake(hits as f32 * 5.0 + 5.0, 0.3);
             if !self.player.is_alive() {
                 self.handle_player_defeat();
             }
@@ -193,52 +217,48 @@ impl Game {
     // --- Draw par état ---
 
     fn draw_login(&self) {
-        draw_text(
-            "HACKDLE — Connecte-toi",
+        draw_text_ex(
+            "HACKDLE / LOGIN",
             20.0,
             80.0,
-            36.0,
-            WHITE,
+            TextParams { font_size: 36, font: Some(&self.assets.font), color: WHITE, ..Default::default() },
         );
-        draw_text(
-            "Tape un identifiant (A-Z, 0-9, _ ou -) puis Entrée",
+        draw_text_ex(
+            "ENTER USERNAME [A-Z, 0-9, _, -]",
             20.0,
             120.0,
-            20.0,
-            GRAY,
+            TextParams { font_size: 20, font: Some(&self.assets.font), color: GRAY, ..Default::default() },
         );
-        draw_text(
-            "Backspace pour effacer, Échap pour vider",
+        draw_text_ex(
+            "<BACKSPACE> CLEAR_LAST | <ESC> CLEAR_ALL",
             20.0,
             150.0,
-            18.0,
-            DARKGRAY,
+            TextParams { font_size: 18, font: Some(&self.assets.font), color: DARKGRAY, ..Default::default() },
         );
 
         draw_rectangle_lines(16.0, 170.0, 360.0, 52.0, 2.0, WHITE);
         let display = format!("> {}", self.login_input);
-        draw_text(&display, 28.0, 206.0, 32.0, YELLOW);
+        draw_text_ex(&display, 28.0, 206.0, TextParams { font_size: 32, font: Some(&self.assets.font), color: YELLOW, ..Default::default() });
 
-        renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6);
+        renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
     }
 
     fn draw_menu(&self) {
         let center_y = screen_height() / 2.0;
         let message = self
             .current_username()
-            .map(|name| format!("Agent {name}, appuie sur Entrée pour lancer la défense"))
-            .unwrap_or_else(|| "Connecte-toi pour jouer".to_string());
+            .map(|name| format!("AGENT [{}]: PRESS <ENTER> TO INITIATE DEFENSE", name))
+            .unwrap_or_else(|| "UNAUTHORIZED: LOGIN REQUIRED".to_string());
 
-        draw_text(&message, 20.0, center_y, 26.0, WHITE);
-        draw_text(
-            "L pour changer d'agent",
+        draw_text_ex(&message, 20.0, center_y, TextParams { font_size: 26, font: Some(&self.assets.font), color: WHITE, ..Default::default() });
+        draw_text_ex(
+            "PRESS <L> TO SWITCH AGENT",
             20.0,
             center_y + 32.0,
-            20.0,
-            GRAY,
+            TextParams { font_size: 20, font: Some(&self.assets.font), color: GRAY, ..Default::default() },
         );
 
-        renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6);
+        renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
     }
 
     fn draw_wave(&self) {
@@ -246,31 +266,30 @@ impl Game {
             wave.draw(&self.assets);
         }
         self.player.draw(&self.assets);
-        renderer::draw_hud(&self.player, self.wave_number);
+        renderer::draw_hud(&self.player, self.wave_number, Some(&self.assets.font));
     }
 
     fn draw_between_waves(&self) {
         let text = format!(
-            "Vague {} terminée ! Entrée pour la suivante (Échap pour abandonner)",
+            "WAVE_{:03} CLEARED. PRESS <ENTER> TO PROCEED. <ESC> TO ABORT.",
             self.wave_number
         );
-        draw_text(&text, 20.0, screen_height() / 2.0, 24.0, GREEN);
-        renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6);
+        draw_text_ex(&text, 20.0, screen_height() / 2.0, TextParams { font_size: 24, font: Some(&self.assets.font), color: GREEN, ..Default::default() });
+        renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
     }
 
     fn draw_shop(&self) {}
 
     fn draw_game_over(&self) {
-        let message = format!("GAME OVER — vague atteinte {}", self.wave_number);
-        draw_text(&message, 20.0, screen_height() / 2.0, 28.0, RED);
-        draw_text(
-            "Entrée pour retenter, L pour changer d'agent",
+        let message = format!("SYSTEM FAILURE // WAVES SURVIVED: {}", self.wave_number);
+        draw_text_ex(&message, 20.0, screen_height() / 2.0, TextParams { font_size: 28, font: Some(&self.assets.font), color: RED, ..Default::default() });
+        draw_text_ex(
+            "PRESS <ENTER> TO RETRY | <L> SWITCH AGENT",
             20.0,
             screen_height() / 2.0 + 36.0,
-            20.0,
-            GRAY,
+            TextParams { font_size: 20, font: Some(&self.assets.font), color: GRAY, ..Default::default() },
         );
-        renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6);
+        renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
     }
 
     // --- Helpers ---

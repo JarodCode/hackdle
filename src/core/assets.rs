@@ -7,6 +7,7 @@ pub struct GameAssets {
     pub virus_classic: Texture2D,
     pub virus_heavy: Texture2D,
     pub virus_boss: Texture2D,
+    pub font: Font,
 }
 
 impl GameAssets {
@@ -18,6 +19,7 @@ impl GameAssets {
             virus_classic: load_texture("assets/virus_classic_1773656457892.png").await.unwrap(),
             virus_heavy: load_texture("assets/virus_heavy_1773656480117.png").await.unwrap(),
             virus_boss: load_texture("assets/virus_boss_1773656496889.png").await.unwrap(),
+            font: load_ttf_font("assets/fonts/Hack.ttf").await.unwrap(),
         }
     }
 }

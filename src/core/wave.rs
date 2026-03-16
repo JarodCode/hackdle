@@ -46,7 +46,7 @@ impl Wave {
         Vec2::new(cx + angle.cos() * radius, cy + angle.sin() * radius)
     }
 
-    pub fn type_char(&mut self, c: char) {
+    pub fn type_char(&mut self, c: char, vfx: &mut crate::core::vfx::VfxManager, player_pos: Vec2) {
         let any_active = self.entries.iter().any(|e| e.active);
 
         if any_active {
@@ -57,11 +57,14 @@ impl Wave {
                 match entry.typing.type_char(c) {
                     TypingResult::Correct => {
                         any_correct = true;
+                        vfx.spawn_laser(player_pos, entry.virus.position, GREEN);
                     }
                     TypingResult::Complete => {
                         any_correct = true;
                         let hp = entry.virus.health;
                         entry.virus.take_damage(hp);
+                        vfx.spawn_laser(player_pos, entry.virus.position, GREEN);
+                        vfx.spawn_explosion(entry.virus.position, 20, entry.virus.color());
                         entry.active = false;
                     }
                     TypingResult::Wrong => {
@@ -87,11 +90,14 @@ impl Wave {
                     TypingResult::Correct => {
                         entry.active = true;
                         found = true;
+                        vfx.spawn_laser(player_pos, entry.virus.position, GREEN);
                     }
                     TypingResult::Complete => {
                         // Mot d'une seule lettre
                         let hp = entry.virus.health;
                         entry.virus.take_damage(hp);
+                        vfx.spawn_laser(player_pos, entry.virus.position, GREEN);
+                        vfx.spawn_explosion(entry.virus.position, 20, entry.virus.color());
                         found = true;
                     }
                     TypingResult::Wrong => {
@@ -124,9 +130,10 @@ impl Wave {
                     entry.typing.typed_part(),
                     entry.typing.remaining_part(),
                     x, y,
+                    Some(&assets.font),
                 );
             } else {
-                renderer::draw_virus_word("", &entry.virus.word, x, y);
+                renderer::draw_virus_word("", &entry.virus.word, x, y, Some(&assets.font));
             }
         }
     }
