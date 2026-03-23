@@ -37,6 +37,7 @@ pub struct Game {
     run_recorded: bool,
     assets: Rc<GameAssets>,
     vfx: VfxManager,
+    matrix_bg: crate::core::matrix_bg::MatrixBackground,
 }
 
 impl Game {
@@ -57,10 +58,12 @@ impl Game {
             run_recorded: true,
             assets,
             vfx: VfxManager::new(),
+            matrix_bg: crate::core::matrix_bg::MatrixBackground::new(),
         }
     }
 
     pub fn update(&mut self, dt: f32) {
+        self.matrix_bg.update(dt);
         match self.state {
             GameState::Login => self.update_login(dt),
             GameState::MainMenu => self.update_menu(dt),
@@ -78,17 +81,8 @@ impl Game {
         
         let shake = self.vfx.get_shake_offset();
 
-        // Draw the background texture scaled to the screen size, applying shake
-        draw_texture_ex(
-            &self.assets.background,
-            shake.x,
-            shake.y,
-            WHITE,
-            DrawTextureParams {
-                dest_size: Some(vec2(screen_width(), screen_height())),
-                ..Default::default()
-            },
-        );
+
+        self.matrix_bg.draw(&self.assets);
 
         match self.state {
             GameState::Login => self.draw_login(),
