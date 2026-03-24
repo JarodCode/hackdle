@@ -1,10 +1,12 @@
 use macroquad::prelude::*;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum VirusKind {
     Fast,
     Classic,
     Heavy,
     Boss,
+    SummonerBoss,
 }
 
 pub struct Virus {
@@ -24,6 +26,8 @@ impl Virus {
             VirusKind::Heavy   => (15.0,  4),
             // 4 PV => 4 mots successifs à taper pour vaincre le boss
             VirusKind::Boss    => (10.0,  4),
+            // Boss invocateur: protégé par ses sbires, vulnérable en fin de cycle.
+            VirusKind::SummonerBoss => (8.0, 1),
         };
 
         Self { position, kind, speed, health, word }
@@ -41,6 +45,7 @@ impl Virus {
             VirusKind::Classic => RED,
             VirusKind::Heavy   => ORANGE,
             VirusKind::Boss    => PURPLE,
+            VirusKind::SummonerBoss => BLUE,
         };
 
         // Placeholder visuel : un cercle coloré
@@ -54,6 +59,7 @@ impl Virus {
             VirusKind::Classic => 18.0,
             VirusKind::Heavy   => 26.0,
             VirusKind::Boss    => 40.0,
+            VirusKind::SummonerBoss => 44.0,
         }
     }
 

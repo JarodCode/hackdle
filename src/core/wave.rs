@@ -1,11 +1,10 @@
 use macroquad::prelude::*;
 
+use crate::core::boss;
 use crate::core::virus::{Virus, VirusKind};
 use crate::data::words::{Difficulty, WordList};
 use crate::ui::input::{TypingState, TypingResult};
 use crate::ui::renderer;
-
-const BOSS_EVERY_N_WAVES: u32 = 5;
 
 pub struct VirusEntry {
     pub virus: Virus,
@@ -14,6 +13,10 @@ pub struct VirusEntry {
     pub active: bool,
     // Phase de bouclier du boss (0, 1, 2, ...)
     pub boss_phase: usize,
+    // Nombre de vagues de sbires déjà invoquées (boss invocateur uniquement)
+    pub boss_spawn_cycles_done: usize,
+    // Marque les sbires invoqués par le boss invocateur
+    pub summoned_by_boss: bool,
 }
 
 pub struct Wave {
@@ -28,7 +31,7 @@ impl Wave {
     }
 
     fn spawn_viruses(wave_number: u32) -> Vec<VirusEntry> {
-        if Self::is_boss_wave(wave_number) {
+        if boss::is_boss_wave(wave_number) {
             return vec![Self::spawn_boss(wave_number)];
         }
 
@@ -45,33 +48,45 @@ impl Wave {
                 typing,
                 active: false,
                 boss_phase: 0,
+                boss_spawn_cycles_done: 0,
+                summoned_by_boss: false,
             });
         }
 
         entries
     }
 
-    fn is_boss_wave(wave_number: u32) -> bool {
-        wave_number > 0 && wave_number % BOSS_EVERY_N_WAVES == 0
-    }
-
     fn spawn_boss(wave_number: u32) -> VirusEntry {
+        let kind = boss::boss_kind_for_wave(wave_number);
         let position = Vec2::new(screen_width() / 2.0, 90.0);
-        let word = Self::boss_word_for_phase(wave_number, 0).to_string();
+        let word = boss::first_boss_word(wave_number, kind);
         let typing = TypingState::new(word.clone());
-        let virus = Virus::new(position, VirusKind::Boss, word);
+        let virus = Virus::new(position, kind, word);
 
         VirusEntry {
             virus,
             typing,
             active: false,
             boss_phase: 0,
+            boss_spawn_cycles_done: 0,
+            summoned_by_boss: false,
         }
     }
 
-    fn boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str {
-        // Hard words pour renforcer l'identité boss
-        WordList::pick(Difficulty::Hard, wave_number as usize + phase)
+    fn spawn_summoned_minions(&mut self, wave_number: u32, cycle: usize, center: Vec2) {
+        for (position, word) in boss::build_summoned_minions(wave_number, cycle, center) {
+            let typing = TypingState::new(word.clone());
+            let virus = Virus::new(position, VirusKind::Fast, word);
+
+            self.entries.push(VirusEntry {
+                virus,
+                typing,
+                active: false,
+                boss_phase: 0,
+                boss_spawn_cycles_done: 0,
+                summoned_by_boss: true,
+            });
+        }
     }
 
     fn spawn_position(index: usize, total: usize) -> Vec2 {
@@ -84,6 +99,11 @@ impl Wave {
 
     pub fn type_char(&mut self, c: char) {
         let any_active = self.entries.iter().any(|e| e.active);
+        let has_alive_summoned = self
+            .entries
+            .iter()
+            .any(|e| e.summoned_by_boss && e.virus.is_alive());
+        let mut summon_requests: Vec<(usize, Vec2)> = Vec::new();
 
         if any_active {
             // On tape sur tous les virus actifs en parallèle
@@ -96,7 +116,29 @@ impl Wave {
                     }
                     TypingResult::Complete => {
                         any_correct = true;
-                        Self::on_word_complete(self.number, entry);
+                        let hp_before = entry.virus.health;
+                        let cycles_before = entry.boss_spawn_cycles_done;
+                        boss::on_word_complete(
+                            self.number,
+                            &mut entry.virus,
+                            &mut entry.typing,
+                            &mut entry.active,
+                            &mut entry.boss_phase,
+                            &mut entry.boss_spawn_cycles_done,
+                            has_alive_summoned,
+                        );
+                        let hp_after = entry.virus.health;
+                        let cycles_after = entry.boss_spawn_cycles_done;
+
+                        if let Some(cycle) = boss::should_spawn_summoned_minions(
+                            entry.virus.kind,
+                            hp_before,
+                            hp_after,
+                            cycles_before,
+                            cycles_after,
+                        ) {
+                            summon_requests.push((cycle, entry.virus.position));
+                        }
                     }
                     TypingResult::Wrong => {
                         // Ce virus diverge — on le désactive et reset
@@ -113,6 +155,10 @@ impl Wave {
                     entry.active = false;
                 }
             }
+
+            for (cycle, center) in summon_requests {
+                self.spawn_summoned_minions(self.number, cycle, center);
+            }
         } else {
             // Aucun virus actif — on cherche tous ceux qui commencent par ce caractère
             let mut found = false;
@@ -124,7 +170,29 @@ impl Wave {
                     }
                     TypingResult::Complete => {
                         // Mot d'une seule lettre
-                        Self::on_word_complete(self.number, entry);
+                        let hp_before = entry.virus.health;
+                        let cycles_before = entry.boss_spawn_cycles_done;
+                        boss::on_word_complete(
+                            self.number,
+                            &mut entry.virus,
+                            &mut entry.typing,
+                            &mut entry.active,
+                            &mut entry.boss_phase,
+                            &mut entry.boss_spawn_cycles_done,
+                            has_alive_summoned,
+                        );
+                        let hp_after = entry.virus.health;
+                        let cycles_after = entry.boss_spawn_cycles_done;
+
+                        if let Some(cycle) = boss::should_spawn_summoned_minions(
+                            entry.virus.kind,
+                            hp_before,
+                            hp_after,
+                            cycles_before,
+                            cycles_after,
+                        ) {
+                            summon_requests.push((cycle, entry.virus.position));
+                        }
                         found = true;
                     }
                     TypingResult::Wrong => {
@@ -135,6 +203,10 @@ impl Wave {
 
             // Mauvaise lettre — rien ne correspond, on ne fait rien
             let _ = found;
+
+            for (cycle, center) in summon_requests {
+                self.spawn_summoned_minions(self.number, cycle, center);
+            }
         }
     }
 
@@ -166,27 +238,5 @@ impl Wave {
 
     pub fn is_complete(&self) -> bool {
         self.entries.is_empty()
-    }
-
-    fn on_word_complete(wave_number: u32, entry: &mut VirusEntry) {
-        if matches!(entry.virus.kind, VirusKind::Boss) {
-            // Un mot validé retire 1 couche de bouclier au boss.
-            entry.virus.take_damage(1);
-
-            if entry.virus.is_alive() {
-                entry.boss_phase += 1;
-                let next_word = Self::boss_word_for_phase(wave_number, entry.boss_phase).to_string();
-                entry.virus.word = next_word.clone();
-                entry.typing = TypingState::new(next_word);
-                entry.active = true;
-            } else {
-                entry.active = false;
-            }
-            return;
-        }
-
-        let hp = entry.virus.health;
-        entry.virus.take_damage(hp);
-        entry.active = false;
     }
 }
