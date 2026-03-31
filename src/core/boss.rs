@@ -6,6 +6,9 @@ use crate::ui::input::TypingState;
 
 pub const BOSS_EVERY_N_WAVES: u32 = 5;
 pub const SUMMONER_BOSS_CYCLES: usize = 2;
+const CLASSIC_BOSS_WORDS: usize = 4;
+const REVERSE_BOSS_WORDS: usize = 4;
+const SUMMONER_BOSS_FINAL_WORDS: usize = 1;
 const SUMMONER_BOSS_MINIONS_PER_CYCLE: usize = 4;
 const SUMMONER_RADIUS: f32 = 80.0;
 
@@ -33,6 +36,15 @@ pub fn first_boss_word(wave_number: u32, kind: VirusKind) -> String {
     }
 }
 
+pub fn initial_boss_words_remaining(kind: VirusKind) -> usize {
+    match kind {
+        VirusKind::Boss => CLASSIC_BOSS_WORDS,
+        VirusKind::ReverseBoss => REVERSE_BOSS_WORDS,
+        VirusKind::SummonerBoss => SUMMONER_BOSS_FINAL_WORDS,
+        _ => 0,
+    }
+}
+
 pub fn visual_word(kind: VirusKind, word: &str) -> String {
     if matches!(kind, VirusKind::ReverseBoss) {
         word.chars().rev().collect()
@@ -57,14 +69,10 @@ pub fn build_summoned_minions(wave_number: u32, cycle: usize, center: Vec2) -> V
 
 pub fn should_spawn_summoned_minions(
     kind: VirusKind,
-    hp_before: u32,
-    hp_after: u32,
     cycles_before: usize,
     cycles_after: usize,
 ) -> Option<usize> {
     if matches!(kind, VirusKind::SummonerBoss)
-        && hp_after == hp_before
-        && hp_after > 0
         && cycles_after > cycles_before
         && cycles_after <= SUMMONER_BOSS_CYCLES
     {
@@ -80,35 +88,37 @@ pub fn on_word_complete(
     typing: &mut TypingState,
     active: &mut bool,
     boss_phase: &mut usize,
+    boss_words_remaining: &mut usize,
     boss_spawn_cycles_done: &mut usize,
     has_alive_summoned: bool,
 ) {
     if matches!(virus.kind, VirusKind::Boss) {
-        // Un mot valide retire 1 couche de bouclier au boss.
-        virus.take_damage(1);
-
-        if virus.is_alive() {
+        if *boss_words_remaining > 1 {
+            *boss_words_remaining -= 1;
             *boss_phase += 1;
             let next_word = boss_word_for_phase(wave_number, *boss_phase).to_string();
             virus.word = next_word.clone();
             *typing = TypingState::new(next_word);
             *active = true;
         } else {
+            *boss_words_remaining = 0;
+            virus.kill();
             *active = false;
         }
         return;
     }
 
     if matches!(virus.kind, VirusKind::ReverseBoss) {
-        virus.take_damage(1);
-
-        if virus.is_alive() {
+        if *boss_words_remaining > 1 {
+            *boss_words_remaining -= 1;
             *boss_phase += 1;
             let next_word = reverse_boss_word_for_phase(wave_number, *boss_phase).to_string();
             virus.word = next_word.clone();
             *typing = TypingState::new(next_word);
             *active = true;
         } else {
+            *boss_words_remaining = 0;
+            virus.kill();
             *active = false;
         }
         return;
@@ -136,13 +146,22 @@ pub fn on_word_complete(
             return;
         }
 
-        virus.take_damage(1);
-        *active = false;
+        if *boss_words_remaining > 1 {
+            *boss_words_remaining -= 1;
+            *boss_phase += 1;
+            let next_word = summoner_boss_word_for_phase(wave_number, *boss_phase).to_string();
+            virus.word = next_word.clone();
+            *typing = TypingState::new(next_word);
+            *active = true;
+        } else {
+            *boss_words_remaining = 0;
+            virus.kill();
+            *active = false;
+        }
         return;
     }
 
-    let hp = virus.health;
-    virus.take_damage(hp);
+    virus.kill();
     *active = false;
 }
 

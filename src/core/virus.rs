@@ -25,12 +25,10 @@ impl Virus {
             VirusKind::Fast    => (50.0,  1),
             VirusKind::Classic => (25.0,  2),
             VirusKind::Heavy   => (15.0,  4),
-            // 4 PV => 4 mots successifs à taper pour vaincre le boss
-            VirusKind::Boss    => (10.0,  4),
-            // Boss invocateur: protégé par ses sbires, vulnérable en fin de cycle.
+            // Les boss utilisent un compteur de phases séparé (boss_words_remaining).
+            VirusKind::Boss    => (10.0,  1),
             VirusKind::SummonerBoss => (8.0, 1),
-            // Boss inverse: même principe multi-phases que le boss classique.
-            VirusKind::ReverseBoss => (9.0, 4),
+            VirusKind::ReverseBoss => (9.0, 1),
         };
 
         Self { position, kind, speed, health, word }
@@ -74,6 +72,10 @@ impl Virus {
 
     pub fn take_damage(&mut self, amount: u32) {
         self.health = self.health.saturating_sub(amount);
+    }
+
+    pub fn kill(&mut self) {
+        self.health = 0;
     }
 
     // Distance au centre — utile pour savoir si le virus a atteint le joueur

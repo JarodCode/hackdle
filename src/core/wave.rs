@@ -13,6 +13,8 @@ pub struct VirusEntry {
     pub active: bool,
     // Phase de bouclier du boss (0, 1, 2, ...)
     pub boss_phase: usize,
+    // Nombre de mots restants avant de vaincre le boss.
+    pub boss_words_remaining: usize,
     // Nombre de vagues de sbires déjà invoquées (boss invocateur uniquement)
     pub boss_spawn_cycles_done: usize,
     // Marque les sbires invoqués par le boss invocateur
@@ -48,6 +50,7 @@ impl Wave {
                 typing,
                 active: false,
                 boss_phase: 0,
+                boss_words_remaining: 0,
                 boss_spawn_cycles_done: 0,
                 summoned_by_boss: false,
             });
@@ -68,6 +71,7 @@ impl Wave {
             typing,
             active: false,
             boss_phase: 0,
+            boss_words_remaining: boss::initial_boss_words_remaining(kind),
             boss_spawn_cycles_done: 0,
             summoned_by_boss: false,
         }
@@ -83,6 +87,7 @@ impl Wave {
                 typing,
                 active: false,
                 boss_phase: 0,
+                boss_words_remaining: 0,
                 boss_spawn_cycles_done: 0,
                 summoned_by_boss: true,
             });
@@ -116,7 +121,6 @@ impl Wave {
                     }
                     TypingResult::Complete => {
                         any_correct = true;
-                        let hp_before = entry.virus.health;
                         let cycles_before = entry.boss_spawn_cycles_done;
                         boss::on_word_complete(
                             self.number,
@@ -124,16 +128,14 @@ impl Wave {
                             &mut entry.typing,
                             &mut entry.active,
                             &mut entry.boss_phase,
+                            &mut entry.boss_words_remaining,
                             &mut entry.boss_spawn_cycles_done,
                             has_alive_summoned,
                         );
-                        let hp_after = entry.virus.health;
                         let cycles_after = entry.boss_spawn_cycles_done;
 
                         if let Some(cycle) = boss::should_spawn_summoned_minions(
                             entry.virus.kind,
-                            hp_before,
-                            hp_after,
                             cycles_before,
                             cycles_after,
                         ) {
@@ -170,7 +172,6 @@ impl Wave {
                     }
                     TypingResult::Complete => {
                         // Mot d'une seule lettre
-                        let hp_before = entry.virus.health;
                         let cycles_before = entry.boss_spawn_cycles_done;
                         boss::on_word_complete(
                             self.number,
@@ -178,16 +179,14 @@ impl Wave {
                             &mut entry.typing,
                             &mut entry.active,
                             &mut entry.boss_phase,
+                            &mut entry.boss_words_remaining,
                             &mut entry.boss_spawn_cycles_done,
                             has_alive_summoned,
                         );
-                        let hp_after = entry.virus.health;
                         let cycles_after = entry.boss_spawn_cycles_done;
 
                         if let Some(cycle) = boss::should_spawn_summoned_minions(
                             entry.virus.kind,
-                            hp_before,
-                            hp_after,
                             cycles_before,
                             cycles_after,
                         ) {
