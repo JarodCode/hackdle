@@ -1,5 +1,3 @@
-// Zéro import macroquad — logique pure, 100% testable
-
 #[derive(Debug, PartialEq)]
 pub enum TypingResult {
     Correct,   // bonne lettre, mot pas encore fini

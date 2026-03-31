@@ -1,19 +1,21 @@
 use macroquad::prelude::*;
 
 #[derive(PartialEq)]
+
+// Différents types de virus pour varier le gameplay
 pub enum VirusKind {
-    Fast,
-    Classic,
-    Heavy,
+    Fast, // rapide, petit mot
+    Classic, // vitesse moyenne, mot moyen
+    Heavy, // lent, mot compliqué
     Boss,
 }
 
 pub struct Virus {
     pub position: Vec2,
     pub kind: VirusKind,
-    pub speed: f32,      // pixels par seconde
+    pub speed: f32, // pixels par seconde
     pub health: u32,
-    pub word: String,    // mot à taper pour l'éliminer
+    pub word: String, // mot à taper pour éliminer
 }
 
 impl Virus {
@@ -30,9 +32,8 @@ impl Virus {
     }
 
     pub fn update(&mut self, dt: f32, target: Vec2) {
-        // Calcule la direction vers le joueur et avance
-        let direction = (target - self.position).normalize();
-        self.position += direction * self.speed * dt;
+        let direction = (target - self.position).normalize(); // vecteur pointant du virus vers le joueur (longueur 1 car normalisé)
+        self.position += direction * self.speed * dt; // on déplace le virus à vitesse .speed (dt : rend le déplacement indépendant du framerate)
     }
 
     pub fn draw(&self) {
@@ -65,8 +66,16 @@ impl Virus {
         self.health = self.health.saturating_sub(amount);
     }
 
-    // Distance au centre — utile pour savoir si le virus a atteint le joueur
     pub fn distance_to(&self, target: Vec2) -> f32 {
         (target - self.position).length()
+    }
+
+    // Fait rebondir le virus quand il touche le joueur
+    pub fn bounce_away(&mut self, target: Vec2) {
+        let direction = (self.position - target)
+            .try_normalize()
+            .unwrap_or(Vec2::new(1.0, 0.0)); // None = (1,0) (droite), cas où le virus est exactement sur le joueur
+        let bounce_distance = self.speed * 1.5;
+        self.position += direction * bounce_distance;
     }
 }

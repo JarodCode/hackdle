@@ -4,7 +4,7 @@ use crate::core::player::Player;
 use crate::core::wave::Wave;
 use crate::ui::renderer;
 
-// Tous les états possibles du jeu
+// Tous les états possibles du jeu, selon le state actuelle on fait des actions différentes
 pub enum GameState {
     MainMenu,
     InWave,
@@ -26,7 +26,7 @@ impl Game {
             state: GameState::MainMenu,
             player: Player::new(),
             wave: None,
-            wave_number: 0,
+            wave_number: 3,
         }
     }
 
@@ -78,17 +78,12 @@ impl Game {
             // Vérifie si un virus a atteint le joueur
             let mut damage_taken = 0u32;
             let mut kills = 0usize;
-            wave.entries.retain(|e| {
-                if e.virus.distance_to(player_pos) < 25.0 {
+            for entry in wave.entries.iter_mut() {
+                let contact_radius = entry.virus.radius() + 20.0;
+                if entry.virus.distance_to(player_pos) < contact_radius {
                     damage_taken += 20;
-                    kills += 1;
-                    false
-                } else {
-                    true
+                    entry.virus.bounce_away(player_pos);
                 }
-            });
-            for _ in 0..kills {
-                wave.register_kill();
             }
 
             if damage_taken > 0 {

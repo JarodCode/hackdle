@@ -4,7 +4,7 @@ use ::rand::thread_rng;
 
 use crate::core::virus::{Virus, VirusKind};
 use crate::data::words::{Difficulty, WordList};
-use crate::ui::input::{TypingState, TypingResult};
+use crate::core::input::{TypingState, TypingResult};
 use crate::ui::renderer;
 
 pub struct VirusEntry {
@@ -16,29 +16,24 @@ pub struct VirusEntry {
 pub struct Wave {
     pub number: u32,
     pub entries: Vec<VirusEntry>,
-    to_kill: usize,      // nombre de virus à tuer pour terminer la vague
-    killed: usize,       // nombre de virus tués jusqu'ici
-    spawned: usize,      // nombre de virus spawnés jusqu'ici
-    spawn_timer: f32,
-    spawn_tick: f32,
-    elapsed: f32,        // temps écoulé — sert à faire monter la probabilité
+    to_kill: usize, // nombre de virus à tuer pour terminer la vague
+    killed: usize, // nombre de virus tués jusqu'ici
+    spawned: usize, // nombre de virus spawnés jusqu'ici
+    elapsed: f32, // temps écoulé
+    next_spawn_in: f32,
 }
 
 impl Wave {
     pub fn new(number: u32) -> Self {
-        let mut wave = Self {
+        Self {
             number,
             entries: Vec::new(),
             to_kill: Self::kills_required(number),
             killed: 0,
             spawned: 0,
-            spawn_timer: 0.5,
-            spawn_tick: 0.5,
             elapsed: 0.0,
-        };
-        // Spawn immédiat du premier virus sans attendre le premier tick
-        wave.spawn_one();
-        wave
+            next_spawn_in: 0.5,
+        }
     }
 
     // Nombre de virus à tuer par vague
@@ -51,43 +46,32 @@ impl Wave {
         }
     }
 
-    // Probabilité de spawn — monte avec le temps mais se calme
-    // si trop de virus sont déjà à l'écran
-    fn spawn_probability(&self) -> f32 {
-        // Pas besoin de spawner plus que ce qu'il reste à tuer
+    fn spawn_delay(&self) -> f32 {
         let remaining = self.to_kill.saturating_sub(self.spawned);
-        if remaining == 0 || self.entries.len() >= 5 {
-            return 0.0;
+        if remaining == 0 {
+            return f32::MAX;
         }
 
-        // La pression monte avec le temps
-        let pressure = (self.elapsed / 20.0).clamp(0.0, 1.0);
-
-        let base = match self.number {
-            1 => 0.05,
-            2 => 0.08,
-            3 => 0.12,
-            _ => 0.15,
+        let max_delay = match self.number {
+            1 => 4.0,
+            2 => 3.5,
+            3 => 3.0,
+            _ => 2.5,
         };
 
-        let max = match self.number {
-            1 => 0.30,
-            2 => 0.45,
-            3 => 0.60,
-            _ => (0.60 + (self.number as f32 - 3.0) * 0.10).min(0.90),
+        let min_delay = match self.number {
+            1 => 2.0,
+            2 => 1.5,
+            3 => 1.0,
+            _ => (1.0 - (self.number as f32 - 3.0) * 0.1).max(0.4),
         };
 
-        base + (max - base) * pressure
-    }
+        let t = (1.0 + self.elapsed / 5.0).ln();
+        let t = t.clamp(0.0, 1.0);
 
-    fn try_spawn(&mut self) {
-        let prob = self.spawn_probability();
-        if prob == 0.0 { return; }
+        let base_delay = (max_delay - (max_delay - min_delay) * t).max(min_delay);
 
-        let roll: f32 = thread_rng().gen_range(0.0..1.0);
-        if roll < prob {
-            self.spawn_one();
-        }
+        base_delay.max(0.3) // jamais moins de 0.3s
     }
 
     // Choisit un type de virus selon la vague — nouveaux types débloqués progressivement
@@ -95,27 +79,26 @@ impl Wave {
         let roll: f32 = thread_rng().gen_range(0.0..1.0);
 
         match self.number {
-            // Vague 1-2 : uniquement Classic
-            1..=2 => VirusKind::Classic,
+            // Vague 1: uniquement Classic
+            1 => VirusKind::Classic,
 
-            // Vague 3-4 : Classic majoritaire, quelques Fast
-            3..=4 => {
-                if roll < 0.25 { VirusKind::Fast }
-                else { VirusKind::Classic }
+            // Vague 2: petite chance de rapide
+            2 => {
+                if roll < 0.2 { VirusKind::Fast }
+                else { VirusKind::Classic } 
             }
 
-            // Vague 5-6 : Fast et Classic, premiers Heavy
-            5..=6 => {
-                if roll < 0.20 { VirusKind::Fast }
+            // Vague 3: Classic majoritaire, quelques Fast, petite chance lourd
+            3 => {
+                if roll < 0.25 { VirusKind::Fast }
                 else if roll < 0.35 { VirusKind::Heavy }
                 else { VirusKind::Classic }
             }
 
-            // Vague 7+ : tous les types, Boss possible
+            // Vague 4+ : tous les types, Boss possible
             _ => {
-                if roll < 0.20 { VirusKind::Fast }
-                else if roll < 0.40 { VirusKind::Heavy }
-                else if roll < 0.50 { VirusKind::Boss }
+                if roll < 0.3 { VirusKind::Fast }
+                else if roll < 0.5 { VirusKind::Heavy }
                 else { VirusKind::Classic }
             }
         }
@@ -132,9 +115,8 @@ impl Wave {
     }
 
     fn spawn_one(&mut self) {
-        let angle: f32 = thread_rng().gen_range(0.0..std::f32::consts::TAU);
-        let margin = 60.0;
-        let radius = (screen_width().hypot(screen_height()) / 2.0) + margin;
+        let angle: f32 = thread_rng().gen_range(0.0..std::f32::consts::TAU); // TAU = 2pi, on choisit un angle aléatoire tout autour
+        let radius = (screen_width().hypot(screen_height()) / 2.0);
 
         let cx = screen_width() / 2.0;
         let cy = screen_height() / 2.0;
@@ -201,10 +183,18 @@ impl Wave {
     pub fn update(&mut self, dt: f32, player_pos: Vec2) {
         self.elapsed += dt;
 
-        self.spawn_timer -= dt;
-        if self.spawn_timer <= 0.0 {
-            self.try_spawn();
-            self.spawn_timer = self.spawn_tick;
+        // Plafond dynamique : plus élevé en fin de vague pour maintenir la pression
+        let remaining = self.to_kill.saturating_sub(self.spawned);
+        let max_on_screen = if remaining <= 3 { 3 } else { 5 };
+
+        self.next_spawn_in -= dt;
+        if self.next_spawn_in <= 0.0 {
+            if remaining > 0 && self.entries.len() < max_on_screen {
+                self.spawn_one();
+                self.next_spawn_in = self.spawn_delay();
+            } else {
+                self.next_spawn_in = 0.2;
+            }
         }
 
         let before = self.entries.len();
@@ -214,7 +204,6 @@ impl Wave {
         self.entries.retain(|e| e.virus.is_alive());
         let after = self.entries.len();
 
-        // Chaque virus supprimé par frappe compte comme un kill
         self.killed += before - after;
     }
 
