@@ -224,7 +224,11 @@ impl Wave {
             let x = entry.virus.position.x - 20.0;
             let y = entry.virus.position.y - entry.virus.radius() - 8.0;
 
-            if entry.active {
+            if matches!(entry.virus.kind, VirusKind::ReverseBoss) {
+                // Boss inverse: inversion uniquement visuelle, la saisie reste normale.
+                let visible = boss::visual_word(entry.virus.kind, &entry.virus.word);
+                renderer::draw_virus_word("", &visible, x, y);
+            } else if entry.active {
                 renderer::draw_virus_word(
                     entry.typing.typed_part(),
                     entry.typing.remaining_part(),

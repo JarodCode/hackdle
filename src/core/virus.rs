@@ -7,6 +7,7 @@ pub enum VirusKind {
     Heavy,
     Boss,
     SummonerBoss,
+    ReverseBoss,
 }
 
 pub struct Virus {
@@ -28,6 +29,8 @@ impl Virus {
             VirusKind::Boss    => (10.0,  4),
             // Boss invocateur: protégé par ses sbires, vulnérable en fin de cycle.
             VirusKind::SummonerBoss => (8.0, 1),
+            // Boss inverse: même principe multi-phases que le boss classique.
+            VirusKind::ReverseBoss => (9.0, 4),
         };
 
         Self { position, kind, speed, health, word }
@@ -46,6 +49,7 @@ impl Virus {
             VirusKind::Heavy   => ORANGE,
             VirusKind::Boss    => PURPLE,
             VirusKind::SummonerBoss => BLUE,
+            VirusKind::ReverseBoss => SKYBLUE,
         };
 
         // Placeholder visuel : un cercle coloré
@@ -60,6 +64,7 @@ impl Virus {
             VirusKind::Heavy   => 26.0,
             VirusKind::Boss    => 40.0,
             VirusKind::SummonerBoss => 44.0,
+            VirusKind::ReverseBoss => 42.0,
         }
     }
 

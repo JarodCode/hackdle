@@ -14,10 +14,12 @@ pub fn is_boss_wave(wave_number: u32) -> bool {
 }
 
 pub fn boss_kind_for_wave(wave_number: u32) -> VirusKind {
-    // 5, 15, 25... => boss classique ; 10, 20, 30... => boss invocateur
-    let boss_index = wave_number / BOSS_EVERY_N_WAVES;
-    if boss_index % 2 == 0 {
+    if wave_number == 5 {
+        VirusKind::Boss
+    } else if wave_number % 10 == 0 {
         VirusKind::SummonerBoss
+    } else if wave_number > 5 && wave_number % 10 == 5 {
+        VirusKind::ReverseBoss
     } else {
         VirusKind::Boss
     }
@@ -26,7 +28,16 @@ pub fn boss_kind_for_wave(wave_number: u32) -> VirusKind {
 pub fn first_boss_word(wave_number: u32, kind: VirusKind) -> String {
     match kind {
         VirusKind::SummonerBoss => summoner_boss_word_for_phase(wave_number, 0).to_string(),
+        VirusKind::ReverseBoss => reverse_boss_word_for_phase(wave_number, 0).to_string(),
         _ => boss_word_for_phase(wave_number, 0).to_string(),
+    }
+}
+
+pub fn visual_word(kind: VirusKind, word: &str) -> String {
+    if matches!(kind, VirusKind::ReverseBoss) {
+        word.chars().rev().collect()
+    } else {
+        word.to_string()
     }
 }
 
@@ -88,6 +99,21 @@ pub fn on_word_complete(
         return;
     }
 
+    if matches!(virus.kind, VirusKind::ReverseBoss) {
+        virus.take_damage(1);
+
+        if virus.is_alive() {
+            *boss_phase += 1;
+            let next_word = reverse_boss_word_for_phase(wave_number, *boss_phase).to_string();
+            virus.word = next_word.clone();
+            *typing = TypingState::new(next_word);
+            *active = true;
+        } else {
+            *active = false;
+        }
+        return;
+    }
+
     if matches!(virus.kind, VirusKind::SummonerBoss) {
         if has_alive_summoned {
             // Invincible tant qu'au moins un sbire invoque est vivant.
@@ -128,6 +154,11 @@ fn boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str {
 fn summoner_boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str {
     // On garde des mots difficiles pour le boss invocateur aussi.
     WordList::pick(Difficulty::Hard, wave_number as usize + 17 + phase)
+}
+
+fn reverse_boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str {
+    // Variante de seed pour limiter les répétitions avec les autres boss.
+    WordList::pick(Difficulty::Hard, wave_number as usize + 31 + phase)
 }
 
 fn summoned_minion_word(wave_number: u32, cycle: usize, idx: usize) -> &'static str {
