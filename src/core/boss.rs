@@ -5,10 +5,10 @@ use crate::data::words::{Difficulty, WordList};
 use crate::ui::input::TypingState;
 
 pub const BOSS_EVERY_N_WAVES: u32 = 5;
-pub const SUMMONER_BOSS_CYCLES: usize = 2;
 const CLASSIC_BOSS_WORDS: usize = 4;
-const REVERSE_BOSS_WORDS: usize = 4;
+const REVERSE_BOSS_BASE_WORDS: usize = 3;
 const SUMMONER_BOSS_FINAL_WORDS: usize = 1;
+const SUMMONER_BOSS_BASE_CYCLES: usize = 2;
 const SUMMONER_BOSS_MINIONS_PER_CYCLE: usize = 4;
 const SUMMONER_RADIUS: f32 = 80.0;
 
@@ -36,10 +36,10 @@ pub fn first_boss_word(wave_number: u32, kind: VirusKind) -> String {
     }
 }
 
-pub fn initial_boss_words_remaining(kind: VirusKind) -> usize {
+pub fn initial_boss_words_remaining(kind: VirusKind, wave_number: u32) -> usize {
     match kind {
         VirusKind::Boss => CLASSIC_BOSS_WORDS,
-        VirusKind::ReverseBoss => REVERSE_BOSS_WORDS,
+        VirusKind::ReverseBoss => reverse_boss_words_for_wave(wave_number),
         VirusKind::SummonerBoss => SUMMONER_BOSS_FINAL_WORDS,
         _ => 0,
     }
@@ -69,12 +69,13 @@ pub fn build_summoned_minions(wave_number: u32, cycle: usize, center: Vec2) -> V
 
 pub fn should_spawn_summoned_minions(
     kind: VirusKind,
+    wave_number: u32,
     cycles_before: usize,
     cycles_after: usize,
 ) -> Option<usize> {
     if matches!(kind, VirusKind::SummonerBoss)
         && cycles_after > cycles_before
-        && cycles_after <= SUMMONER_BOSS_CYCLES
+        && cycles_after <= summoner_boss_cycles_for_wave(wave_number)
     {
         Some(cycles_after)
     } else {
@@ -135,8 +136,8 @@ pub fn on_word_complete(
             return;
         }
 
-        // Le boss invocateur n'est vulnerable qu'apres 2 cycles d'invocation.
-        if *boss_spawn_cycles_done < SUMMONER_BOSS_CYCLES {
+        // Le boss invocateur devient plus difficile avec +1 cycle tous les 10 niveaux.
+        if *boss_spawn_cycles_done < summoner_boss_cycles_for_wave(wave_number) {
             *boss_spawn_cycles_done += 1;
             *boss_phase += 1;
             let next_word = summoner_boss_word_for_phase(wave_number, *boss_phase).to_string();
@@ -178,6 +179,16 @@ fn summoner_boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str 
 fn reverse_boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str {
     // Variante de seed pour limiter les répétitions avec les autres boss.
     WordList::pick(Difficulty::Hard, wave_number as usize + 31 + phase)
+}
+
+fn reverse_boss_words_for_wave(wave_number: u32) -> usize {
+    // 15 => 3 mots, 25 => 4, 35 => 5...
+    REVERSE_BOSS_BASE_WORDS + ((wave_number.saturating_sub(15) / 10) as usize)
+}
+
+fn summoner_boss_cycles_for_wave(wave_number: u32) -> usize {
+    // 10 => 2 cycles, 20 => 3, 30 => 4...
+    SUMMONER_BOSS_BASE_CYCLES + ((wave_number.saturating_sub(10) / 10) as usize)
 }
 
 fn summoned_minion_word(wave_number: u32, cycle: usize, idx: usize) -> &'static str {

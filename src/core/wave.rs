@@ -71,7 +71,7 @@ impl Wave {
             typing,
             active: false,
             boss_phase: 0,
-            boss_words_remaining: boss::initial_boss_words_remaining(kind),
+            boss_words_remaining: boss::initial_boss_words_remaining(kind, wave_number),
             boss_spawn_cycles_done: 0,
             summoned_by_boss: false,
         }
@@ -136,6 +136,7 @@ impl Wave {
 
                         if let Some(cycle) = boss::should_spawn_summoned_minions(
                             entry.virus.kind,
+                            self.number,
                             cycles_before,
                             cycles_after,
                         ) {
@@ -187,6 +188,7 @@ impl Wave {
 
                         if let Some(cycle) = boss::should_spawn_summoned_minions(
                             entry.virus.kind,
+                            self.number,
                             cycles_before,
                             cycles_after,
                         ) {
