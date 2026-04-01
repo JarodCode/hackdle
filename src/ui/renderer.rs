@@ -1,6 +1,6 @@
 use macroquad::prelude::*;
 
-use crate::accounts::UserProfile;
+use crate::data::UserProfile;
 use crate::ui::assets::GameAssets;
 use crate::core::boss;
 use crate::core::player::Player;

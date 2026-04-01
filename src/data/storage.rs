@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 
-use crate::accounts::UserProfile;
+use crate::data::UserProfile;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SaveData {
