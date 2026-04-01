@@ -1,5 +1,3 @@
-// Zéro import macroquad — logique pure, 100% testable
-
 #[derive(Debug, PartialEq)]
 pub enum TypingResult {
     Correct,   // bonne lettre, mot pas encore fini
@@ -18,10 +16,11 @@ impl TypingState {
     }
 
     pub fn type_char(&mut self, c: char) -> TypingResult {
+         // chars : transforme le String en itérateur sur les caractères + nth : donne la le char à la pos .progress
         let expected = self.target.chars().nth(self.progress);
 
         match expected {
-            Some(e) if e == c => {
+            Some(e) if e == c => { // if : Double condition sur ce cas du match
                 self.progress += 1;
                 if self.progress == self.target.len() {
                     TypingResult::Complete
@@ -33,7 +32,7 @@ impl TypingState {
         }
     }
 
-    // Portion du mot déjà tapée — utile pour le rendu (lettres vertes)
+    // Portion du mot déjà tapée (lettres vertes)
     pub fn typed_part(&self) -> &str {
         &self.target[..self.progress]
     }

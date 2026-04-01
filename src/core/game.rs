@@ -14,7 +14,7 @@ use std::rc::Rc;
 const DAMAGE_PER_HIT: u32 = 10;
 const MAX_USERNAME_LEN: usize = 16;
 
-// Tous les états possibles du jeu
+// Tous les états possibles du jeu, selon le state actuelle on fait des actions différentes
 pub enum GameState {
     Login,
     MainMenu,
@@ -148,15 +148,24 @@ impl Game {
         if let Some(wave) = &mut self.wave {
             wave.update(dt, player_pos);
 
-            wave.entries.retain(|entry| {
-                let hit = entry.virus.distance_to(player_pos) < 25.0;
-                if hit {
-                    hits += 1;
+            // Vérifie si un virus a atteint le joueur
+            let mut damage_taken = 0u32;
+            for entry in wave.entries.iter_mut() {
+                let contact_radius = entry.virus.radius() + 20.0;
+                if entry.virus.distance_to(player_pos) < contact_radius {
+                    damage_taken += 20;
+                    entry.virus.bounce_away(player_pos);
                 }
-                !hit
-            });
+            }
 
-            if wave.is_complete() {
+            if damage_taken > 0 {
+                self.player.take_damage(damage_taken);
+            }
+
+            // La mort prend la priorité sur la fin de vague
+            if !self.player.is_alive() {
+                self.state = GameState::GameOver;
+            } else if wave.is_complete() {
                 self.state = GameState::BetweenWaves;
             }
         }

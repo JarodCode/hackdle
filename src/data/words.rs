@@ -1,6 +1,3 @@
-// Pas de serde/JSON pour l'instant — mots en dur, on ajoutera le chargement
-// depuis des fichiers JSON à la Phase 3.
-
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Difficulty {
     Easy,
@@ -19,32 +16,42 @@ impl WordList {
         }
     }
 
-    // Sélectionne un mot aléatoire selon la difficulté
-    // `index` est fourni par l'appelant — on n'utilise pas rand ici encore
     pub fn pick(difficulty: Difficulty, index: usize) -> &'static str {
         let list = Self::get(difficulty);
         list[index % list.len()]
     }
 }
 
-// Mots courts et simples — virus Fast et Classic en début de partie
+// Mots courts 2-4 lettres — rapides à taper
 static EASY_WORDS: &[&str] = &[
-    "if", "let", "mut", "fn", "use", "mod", "pub", "for", "in",
-    "loop", "move", "ref", "str", "vec", "map", "key", "val",
+    "bit", "bug", "cpu", "ram", "log", "hex", "key", "net",
+    "run", "ssh", "tcp", "udp", "vim", "www", "zip", "api",
+    "bot", "cmd", "dns", "elf", "ftp", "git", "hub", "ip",
+    "jar", "lib", "map", "nul", "obj", "php", "sql", "url",
+    "var", "xml", "yes", "zsh", "awk", "cat", "cut", "dig",
 ];
 
-// Mots moyens — Classic et Heavy
+// Mots moyens 5-7 lettres — fluides à taper
 static MEDIUM_WORDS: &[&str] = &[
-    "match", "enum", "impl", "trait", "where", "super", "self",
-    "async", "await", "spawn", "clone", "debug", "error", "panic",
-    "stdin", "stack", "alloc", "token", "parse",
+    "array", "cache", "class", "clone", "crash", "debug", "event",
+    "fetch", "frame", "index", "input", "layer", "linux", "login",
+    "macro", "mutex", "nginx", "patch", "pixel", "proxy", "query",
+    "queue", "quota", "regex", "route", "scope", "shell", "stack",
+    "stdin", "stdio", "token", "trait", "tuple", "virus", "watch",
+    "yield", "async", "await", "build", "bytes", "close", "codec",
+    "delta", "emacs", "errno", "forge", "grant", "guard", "hooks",
 ];
 
-// Mots longs et complexes — Heavy et Boss
+// Mots longs 8+ lettres — réservés Heavy et Boss
 static HARD_WORDS: &[&str] = &[
-    "borrowing", "lifetime", "ownership", "iteration", "recursive",
-    "inference", "compiler", "serialize", "deserialize", "reference",
-    "immutable", "concurrency", "allocation", "propagate", "implement",
+    "assembly", "callback", "checksum", "compiler", "database",
+    "deadlock", "encoding", "ethernet", "firewall", "firmware",
+    "frontend", "function", "graphics", "hashbrown", "iterator",
+    "keyboard", "lifetime", "loopback", "manifest", "markdown",
+    "metadata", "overflow", "pipeline", "platform", "priority",
+    "protocol", "refactor", "renderer", "resource", "rollback",
+    "segments", "shutdown", "sideband", "snapshot", "syscall",
+    "template", "terminal", "throttle", "topology", "unittest",
 ];
 
 #[cfg(test)]
@@ -55,7 +62,6 @@ mod tests {
     fn pick_wraps_around() {
         let list = WordList::get(Difficulty::Easy);
         let len = list.len();
-        // L'index modulo la longueur ne doit jamais dépasser les bornes
         assert_eq!(WordList::pick(Difficulty::Easy, 0), list[0]);
         assert_eq!(WordList::pick(Difficulty::Easy, len), list[0]);
         assert_eq!(WordList::pick(Difficulty::Easy, len + 1), list[1]);
@@ -66,5 +72,19 @@ mod tests {
         assert!(!WordList::get(Difficulty::Easy).is_empty());
         assert!(!WordList::get(Difficulty::Medium).is_empty());
         assert!(!WordList::get(Difficulty::Hard).is_empty());
+    }
+
+    #[test]
+    fn easy_words_are_short() {
+        for word in WordList::get(Difficulty::Easy) {
+            assert!(word.len() <= 4, "mot trop long en Easy : {}", word);
+        }
+    }
+
+    #[test]
+    fn hard_words_are_long() {
+        for word in WordList::get(Difficulty::Hard) {
+            assert!(word.len() >= 8, "mot trop court en Hard : {}", word);
+        }
     }
 }
