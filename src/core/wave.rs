@@ -139,7 +139,9 @@ impl Wave {
 
     fn spawn_boss_entry(&mut self) {
         let kind = boss::boss_kind_for_wave(self.number);
-        let position = Vec2::new(screen_width() / 2.0, 90.0);
+        let center = Vec2::new(screen_width() / 2.0, screen_height() / 2.0);
+        let radius = screen_width().min(screen_height()) * 0.4;
+        let position = center + Vec2::new(0.0, -radius);
         let word = boss::first_boss_word(self.number, kind);
         let typing = TypingState::new(word.clone());
         let virus = Virus::new(position, kind, word);
@@ -161,7 +163,7 @@ impl Wave {
     fn spawn_summoned_minions(&mut self, wave_number: u32, cycle: usize, center: Vec2) {
         for (position, word) in boss::build_summoned_minions(wave_number, cycle, center) {
             let typing = TypingState::new(word.clone());
-            let virus = Virus::new(position, VirusKind::Fast, word);
+            let virus = Virus::new(position, VirusKind::Classic, word);
 
             self.entries.push(VirusEntry {
                 virus,
@@ -216,11 +218,23 @@ impl Wave {
     }
 
     pub fn type_char(&mut self, c: char, vfx: &mut crate::core::vfx::VfxManager, player_pos: Vec2, assets: &crate::core::assets::GameAssets) {
-        let any_active = self.entries.iter().any(|e| e.active);
         let has_alive_summoned = self
             .entries
             .iter()
             .any(|e| e.summoned_by_boss && e.virus.is_alive());
+
+        // Priorité aux sbires invoqués: tant qu'ils sont vivants,
+        // on évite que le boss invocateur capte la saisie.
+        if has_alive_summoned {
+            for entry in self.entries.iter_mut() {
+                if matches!(entry.virus.kind, VirusKind::SummonerBoss) {
+                    entry.active = false;
+                    entry.typing.reset();
+                }
+            }
+        }
+
+        let any_active = self.entries.iter().any(|e| e.active);
         let mut summon_requests: Vec<(usize, Vec2)> = Vec::new();
 
         if any_active {
@@ -273,6 +287,10 @@ impl Wave {
             // Cas où encore aucun virus n'est actif (ciblé par le joueur)
             let mut found = false;
             for entry in self.entries.iter_mut() {
+                if has_alive_summoned && matches!(entry.virus.kind, VirusKind::SummonerBoss) {
+                    continue;
+                }
+
                 match entry.typing.type_char(c) {
                     TypingResult::Correct => {
                         entry.active = true;
