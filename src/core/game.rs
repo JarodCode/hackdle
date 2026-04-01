@@ -6,7 +6,6 @@ use crate::accounts::UserProfile;
 use crate::core::assets::GameAssets;
 use crate::core::player::Player;
 use crate::core::vfx::VfxManager;
-use macroquad::audio::{play_sound, PlaySoundParams};
 use crate::core::wave::Wave;
 use crate::data::{SaveData, Storage};
 use crate::ui::renderer;
