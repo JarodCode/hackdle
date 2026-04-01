@@ -167,6 +167,7 @@ impl Wave {
             }
         } else {
             // Cas où encore aucun virus n'est actif (ciblé par le joueur)
+            let mut found = false;
             for entry in self.entries.iter_mut() {
                 match entry.typing.type_char(c) {
                     TypingResult::Correct => {

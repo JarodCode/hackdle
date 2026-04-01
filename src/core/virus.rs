@@ -65,10 +65,10 @@ impl Virus {
 
     pub fn radius(&self) -> f32 {
         match self.kind {
-            VirusKind::Fast    => 12.0,
-            VirusKind::Classic => 18.0,
-            VirusKind::Heavy   => 26.0,
-            VirusKind::Boss    => 40.0,
+            VirusKind::Fast    => 28.0,
+            VirusKind::Classic => 36.0,
+            VirusKind::Heavy   => 55.0,
+            VirusKind::Boss    => 64.0,
         }
     }
 

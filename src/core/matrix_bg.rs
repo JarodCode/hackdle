@@ -19,19 +19,28 @@ pub struct MatrixBackground {
 
 impl MatrixBackground {
     pub fn new() -> Self {
-        let mut streams = Vec::new();
+        Self { streams: Vec::new() }
+    }
+
+    fn ensure_coverage(&mut self) {
         let spacing = 20.0;
-        let stream_count = (screen_width() / spacing) as usize;
+        let needed = (screen_width() / spacing).ceil() as usize;
 
-        for i in 0..stream_count {
+        while self.streams.len() < needed {
+            let i = self.streams.len();
             let initial_y = rand::gen_range(-screen_height(), screen_height());
-            streams.push(MatrixStream::new(i as f32 * spacing, initial_y));
+            self.streams.push(MatrixStream::new(i as f32 * spacing, initial_y));
         }
-
-        Self { streams }
+        // Recadre les streams existants si la largeur a changé
+        for (i, stream) in self.streams.iter_mut().enumerate() {
+            for e in &mut stream.entities {
+                e.x = i as f32 * spacing;
+            }
+        }
     }
 
     pub fn update(&mut self, dt: f32) {
+        self.ensure_coverage();
         for stream in &mut self.streams {
             stream.update(dt);
         }
