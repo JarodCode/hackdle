@@ -16,7 +16,7 @@ pub struct GameAssets {
 impl GameAssets {
     pub async fn load() -> Self {
         Self {
-            player: load_texture("assets/player.png").await.unwrap(),
+            player: load_texture("assets/Player.png").await.unwrap(),
             virus_fast: load_texture("assets/virus_fast.png").await.unwrap(),
             virus_classic: load_texture("assets/virus_classic.png").await.unwrap(),
             virus_heavy: load_texture("assets/virus_heavy.png").await.unwrap(),
