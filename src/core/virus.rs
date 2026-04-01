@@ -10,6 +10,41 @@ pub enum VirusKind {
     ReverseBoss,
 }
 
+impl VirusKind {
+    pub fn base_stats(self) -> (f32, u32) {
+        match self {
+            Self::Fast => (120.0, 1),
+            Self::Classic => (70.0, 2),
+            Self::Heavy => (40.0, 4),
+            Self::Boss => (25.0, 10),
+            Self::SummonerBoss => (20.0, 1),
+            Self::ReverseBoss => (22.0, 1),
+        }
+    }
+
+    pub fn radius(self) -> f32 {
+        match self {
+            Self::Fast => 12.0,
+            Self::Classic => 18.0,
+            Self::Heavy => 26.0,
+            Self::Boss => 40.0,
+            Self::SummonerBoss => 44.0,
+            Self::ReverseBoss => 42.0,
+        }
+    }
+
+    pub fn color(self) -> Color {
+        match self {
+            Self::Fast => GREEN,
+            Self::Classic => RED,
+            Self::Heavy => ORANGE,
+            Self::Boss => PURPLE,
+            Self::SummonerBoss => BLUE,
+            Self::ReverseBoss => SKYBLUE,
+        }
+    }
+}
+
 pub struct Virus {
     pub position: Vec2,
     pub kind: VirusKind,
@@ -20,21 +55,13 @@ pub struct Virus {
 
 impl Virus {
     pub fn new(position: Vec2, kind: VirusKind, word: String) -> Self {
-        // Les stats varient selon le type d'ennemi
-        let (speed, health) = match kind {
-            VirusKind::Fast    => (120.0, 1),
-            VirusKind::Classic => (70.0,  2),
-            VirusKind::Heavy   => (40.0,  4),
-            VirusKind::Boss    => (25.0, 10),
-            VirusKind::SummonerBoss => (20.0, 1),
-            VirusKind::ReverseBoss => (22.0, 1),
-        };
+        let (speed, health) = kind.base_stats();
 
         Self { position, kind, speed, health, word }
     }
 
     pub fn update(&mut self, dt: f32, target: Vec2) {
-        let direction = (target - self.position).normalize(); // vecteur pointant du virus vers le joueur (longueur 1 car normalisé)
+        let direction = (target - self.position).normalize_or_zero();
         self.position += direction * self.speed * dt; // on déplace le virus à vitesse .speed (dt : rend le déplacement indépendant du framerate)
     }
 
@@ -68,25 +95,11 @@ impl Virus {
     }
 
     pub fn radius(&self) -> f32 {
-        match self.kind {
-            VirusKind::Fast    => 12.0,
-            VirusKind::Classic => 18.0,
-            VirusKind::Heavy   => 26.0,
-            VirusKind::Boss    => 40.0,
-            VirusKind::SummonerBoss => 44.0,
-            VirusKind::ReverseBoss => 42.0,
-        }
+        self.kind.radius()
     }
 
     pub fn color(&self) -> Color {
-        match self.kind {
-            VirusKind::Fast    => GREEN,
-            VirusKind::Classic => RED,
-            VirusKind::Heavy   => ORANGE,
-            VirusKind::Boss    => PURPLE,
-            VirusKind::SummonerBoss => BLUE,
-            VirusKind::ReverseBoss => SKYBLUE,
-        }
+        self.kind.color()
     }
 
     pub fn is_alive(&self) -> bool {

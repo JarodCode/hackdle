@@ -9,6 +9,8 @@ const CLASSIC_BOSS_WORDS: usize = 4;
 const REVERSE_BOSS_BASE_WORDS: usize = 3;
 const SUMMONER_BOSS_FINAL_WORDS: usize = 1;
 const SUMMONER_BOSS_BASE_CYCLES: usize = 2;
+const SUMMONER_BOSS_SEED_OFFSET: usize = 17;
+const REVERSE_BOSS_SEED_OFFSET: usize = 31;
 const SUMMONER_BOSS_MINIONS_PER_CYCLE: usize = 4;
 const SUMMONER_RADIUS: f32 = 80.0;
 
@@ -17,23 +19,22 @@ pub fn is_boss_wave(wave_number: u32) -> bool {
 }
 
 pub fn boss_kind_for_wave(wave_number: u32) -> VirusKind {
-    if wave_number == 5 {
+    if !is_boss_wave(wave_number) {
+        return VirusKind::Boss;
+    }
+
+    let boss_index = wave_number / BOSS_EVERY_N_WAVES;
+    if boss_index == 1 {
         VirusKind::Boss
-    } else if wave_number % 10 == 0 {
+    } else if boss_index % 2 == 0 {
         VirusKind::SummonerBoss
-    } else if wave_number > 5 && wave_number % 10 == 5 {
-        VirusKind::ReverseBoss
     } else {
-        VirusKind::Boss
+        VirusKind::ReverseBoss
     }
 }
 
 pub fn first_boss_word(wave_number: u32, kind: VirusKind) -> String {
-    match kind {
-        VirusKind::SummonerBoss => summoner_boss_word_for_phase(wave_number, 0).to_string(),
-        VirusKind::ReverseBoss => reverse_boss_word_for_phase(wave_number, 0).to_string(),
-        _ => boss_word_for_phase(wave_number, 0).to_string(),
-    }
+    get_boss_word(kind, wave_number, 0)
 }
 
 pub fn initial_boss_words_remaining(kind: VirusKind, wave_number: u32) -> usize {
@@ -93,77 +94,85 @@ pub fn on_word_complete(
     boss_spawn_cycles_done: &mut usize,
     has_alive_summoned: bool,
 ) {
-    if matches!(virus.kind, VirusKind::Boss) {
-        if *boss_words_remaining > 1 {
-            *boss_words_remaining -= 1;
-            *boss_phase += 1;
-            let next_word = boss_word_for_phase(wave_number, *boss_phase).to_string();
-            virus.word = next_word.clone();
-            *typing = TypingState::new(next_word);
-            *active = true;
-        } else {
-            *boss_words_remaining = 0;
+    match virus.kind {
+        VirusKind::Boss | VirusKind::ReverseBoss => {
+            progress_or_kill(
+                virus.kind,
+                wave_number,
+                virus,
+                typing,
+                active,
+                boss_phase,
+                boss_words_remaining,
+            );
+        }
+        VirusKind::SummonerBoss => {
+            if has_alive_summoned {
+                // Invincible tant qu'au moins un sbire invoque est vivant.
+                set_next_boss_word(virus.kind, wave_number, virus, typing, active, boss_phase);
+            } else if *boss_spawn_cycles_done < summoner_boss_cycles_for_wave(wave_number) {
+                // Le boss invocateur devient plus difficile avec +1 cycle tous les 10 niveaux.
+                *boss_spawn_cycles_done += 1;
+                set_next_boss_word(virus.kind, wave_number, virus, typing, active, boss_phase);
+            } else {
+                progress_or_kill(
+                    virus.kind,
+                    wave_number,
+                    virus,
+                    typing,
+                    active,
+                    boss_phase,
+                    boss_words_remaining,
+                );
+            }
+        }
+        _ => {
             virus.kill();
             *active = false;
         }
-        return;
     }
+}
 
-    if matches!(virus.kind, VirusKind::ReverseBoss) {
-        if *boss_words_remaining > 1 {
-            *boss_words_remaining -= 1;
-            *boss_phase += 1;
-            let next_word = reverse_boss_word_for_phase(wave_number, *boss_phase).to_string();
-            virus.word = next_word.clone();
-            *typing = TypingState::new(next_word);
-            *active = true;
-        } else {
-            *boss_words_remaining = 0;
-            virus.kill();
-            *active = false;
-        }
-        return;
+fn progress_or_kill(
+    kind: VirusKind,
+    wave_number: u32,
+    virus: &mut Virus,
+    typing: &mut TypingState,
+    active: &mut bool,
+    boss_phase: &mut usize,
+    boss_words_remaining: &mut usize,
+) {
+    if *boss_words_remaining > 1 {
+        *boss_words_remaining -= 1;
+        set_next_boss_word(kind, wave_number, virus, typing, active, boss_phase);
+    } else {
+        *boss_words_remaining = 0;
+        virus.kill();
+        *active = false;
     }
+}
 
-    if matches!(virus.kind, VirusKind::SummonerBoss) {
-        if has_alive_summoned {
-            // Invincible tant qu'au moins un sbire invoque est vivant.
-            *boss_phase += 1;
-            let next_word = summoner_boss_word_for_phase(wave_number, *boss_phase).to_string();
-            virus.word = next_word.clone();
-            *typing = TypingState::new(next_word);
-            *active = true;
-            return;
-        }
+fn set_next_boss_word(
+    kind: VirusKind,
+    wave_number: u32,
+    virus: &mut Virus,
+    typing: &mut TypingState,
+    active: &mut bool,
+    boss_phase: &mut usize,
+) {
+    *boss_phase += 1;
+    let next_word = get_boss_word(kind, wave_number, *boss_phase);
+    virus.word = next_word.clone();
+    *typing = TypingState::new(next_word);
+    *active = true;
+}
 
-        // Le boss invocateur devient plus difficile avec +1 cycle tous les 10 niveaux.
-        if *boss_spawn_cycles_done < summoner_boss_cycles_for_wave(wave_number) {
-            *boss_spawn_cycles_done += 1;
-            *boss_phase += 1;
-            let next_word = summoner_boss_word_for_phase(wave_number, *boss_phase).to_string();
-            virus.word = next_word.clone();
-            *typing = TypingState::new(next_word);
-            *active = true;
-            return;
-        }
-
-        if *boss_words_remaining > 1 {
-            *boss_words_remaining -= 1;
-            *boss_phase += 1;
-            let next_word = summoner_boss_word_for_phase(wave_number, *boss_phase).to_string();
-            virus.word = next_word.clone();
-            *typing = TypingState::new(next_word);
-            *active = true;
-        } else {
-            *boss_words_remaining = 0;
-            virus.kill();
-            *active = false;
-        }
-        return;
+fn get_boss_word(kind: VirusKind, wave_number: u32, phase: usize) -> String {
+    match kind {
+        VirusKind::SummonerBoss => summoner_boss_word_for_phase(wave_number, phase).to_string(),
+        VirusKind::ReverseBoss => reverse_boss_word_for_phase(wave_number, phase).to_string(),
+        _ => boss_word_for_phase(wave_number, phase).to_string(),
     }
-
-    virus.kill();
-    *active = false;
 }
 
 fn boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str {
@@ -173,12 +182,12 @@ fn boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str {
 
 fn summoner_boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str {
     // On garde des mots difficiles pour le boss invocateur aussi.
-    WordList::pick(Difficulty::Hard, wave_number as usize + 17 + phase)
+    WordList::pick(Difficulty::Hard, wave_number as usize + SUMMONER_BOSS_SEED_OFFSET + phase)
 }
 
 fn reverse_boss_word_for_phase(wave_number: u32, phase: usize) -> &'static str {
     // Variante de seed pour limiter les répétitions avec les autres boss.
-    WordList::pick(Difficulty::Hard, wave_number as usize + 31 + phase)
+    WordList::pick(Difficulty::Hard, wave_number as usize + REVERSE_BOSS_SEED_OFFSET + phase)
 }
 
 fn reverse_boss_words_for_wave(wave_number: u32) -> usize {

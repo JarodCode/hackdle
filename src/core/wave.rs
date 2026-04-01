@@ -35,6 +35,32 @@ pub struct Wave {
     next_spawn_in: f32,
 }
 
+impl VirusEntry {
+    fn handle_completion(&mut self, wave_number: u32, has_alive_summoned: bool) -> Option<(usize, Vec2)> {
+        let cycles_before = self.boss_spawn_cycles_done;
+
+        boss::on_word_complete(
+            wave_number,
+            &mut self.virus,
+            &mut self.typing,
+            &mut self.active,
+            &mut self.boss_phase,
+            &mut self.boss_words_remaining,
+            &mut self.boss_spawn_cycles_done,
+            has_alive_summoned,
+        );
+
+        let cycles_after = self.boss_spawn_cycles_done;
+        boss::should_spawn_summoned_minions(
+            self.virus.kind,
+            wave_number,
+            cycles_before,
+            cycles_after,
+        )
+        .map(|cycle| (cycle, self.virus.position))
+    }
+}
+
 impl Wave {
     pub fn new(number: u32) -> Self {
         let to_kill = if boss::is_boss_wave(number) { 1 } else { Self::kills_required(number) };
@@ -161,7 +187,7 @@ impl Wave {
 
         // on calcule la position où le virus apparait
         let angle: f32 = thread_rng().gen_range(0.0..std::f32::consts::TAU); // TAU = 2pi, on choisit un angle aléatoire tout autour
-        let radius = screen_width().hypot(screen_height()) / 2.0;
+        let radius = screen_width().min(screen_height()) * 0.45;
         let cx = screen_width() / 2.0;
         let cy = screen_height() / 2.0;
         let position = Vec2::new(cx + angle.cos() * radius, cy + angle.sin() * radius);
@@ -210,26 +236,8 @@ impl Wave {
                     }
                     TypingResult::Complete => {
                         any_correct = true;
-                        let cycles_before = entry.boss_spawn_cycles_done;
-                        boss::on_word_complete(
-                            self.number,
-                            &mut entry.virus,
-                            &mut entry.typing,
-                            &mut entry.active,
-                            &mut entry.boss_phase,
-                            &mut entry.boss_words_remaining,
-                            &mut entry.boss_spawn_cycles_done,
-                            has_alive_summoned,
-                        );
-                        let cycles_after = entry.boss_spawn_cycles_done;
-
-                        if let Some(cycle) = boss::should_spawn_summoned_minions(
-                            entry.virus.kind,
-                            self.number,
-                            cycles_before,
-                            cycles_after,
-                        ) {
-                            summon_requests.push((cycle, entry.virus.position));
+                        if let Some(req) = entry.handle_completion(self.number, has_alive_summoned) {
+                            summon_requests.push(req);
                         }
                         vfx.spawn_laser(player_pos, entry.virus.position, GREEN);
                         if !entry.virus.is_alive() {
@@ -273,27 +281,8 @@ impl Wave {
                         play_sound(&assets.sound_laser, PlaySoundParams { looped: false, volume: 0.5 });
                     }
                     TypingResult::Complete => {
-                        // Mot d'une seule lettre
-                        let cycles_before = entry.boss_spawn_cycles_done;
-                        boss::on_word_complete(
-                            self.number,
-                            &mut entry.virus,
-                            &mut entry.typing,
-                            &mut entry.active,
-                            &mut entry.boss_phase,
-                            &mut entry.boss_words_remaining,
-                            &mut entry.boss_spawn_cycles_done,
-                            has_alive_summoned,
-                        );
-                        let cycles_after = entry.boss_spawn_cycles_done;
-
-                        if let Some(cycle) = boss::should_spawn_summoned_minions(
-                            entry.virus.kind,
-                            self.number,
-                            cycles_before,
-                            cycles_after,
-                        ) {
-                            summon_requests.push((cycle, entry.virus.position));
+                        if let Some(req) = entry.handle_completion(self.number, has_alive_summoned) {
+                            summon_requests.push(req);
                         }
                         vfx.spawn_laser(player_pos, entry.virus.position, GREEN);
                         if !entry.virus.is_alive() {
