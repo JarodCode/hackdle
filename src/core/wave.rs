@@ -119,7 +119,7 @@ impl Wave {
         self.spawned += 1;
         let typing = TypingState::new(word.clone());
         let virus = Virus::new(position, kind, word);
-        self.entries.push(VirusEntry { virus, typing, active: false });
+        self.entries.push(VirusEntry { virus, typing, active: false, glitch_timer: 0.0});
     }
 
     pub fn type_char(&mut self, c: char, vfx: &mut crate::core::vfx::VfxManager, player_pos: Vec2, assets: &crate::core::assets::GameAssets) {
