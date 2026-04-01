@@ -189,7 +189,7 @@ impl Wave {
 
         // on calcule la position où le virus apparait
         let angle: f32 = thread_rng().gen_range(0.0..std::f32::consts::TAU); // TAU = 2pi, on choisit un angle aléatoire tout autour
-        let radius = screen_width().min(screen_height()) * 0.45;
+        let radius = screen_width().hypot(screen_height()) / 2.0;
         let cx = screen_width() / 2.0;
         let cy = screen_height() / 2.0;
         let position = Vec2::new(cx + angle.cos() * radius, cy + angle.sin() * radius);
@@ -205,7 +205,16 @@ impl Wave {
         self.spawned += 1;
         let typing = TypingState::new(word.clone());
         let virus = Virus::new(position, kind, word);
-        self.entries.push(VirusEntry { virus, typing, active: false, glitch_timer: 0.0});
+        self.entries.push(VirusEntry {
+            virus,
+            typing,
+            active: false,
+            boss_phase: 0,
+            boss_words_remaining: 0,
+            boss_spawn_cycles_done: 0,
+            summoned_by_boss: false,
+            glitch_timer: 0.0,
+        });
     }
 
     pub fn type_char(&mut self, c: char, vfx: &mut crate::core::vfx::VfxManager, player_pos: Vec2, assets: &crate::core::assets::GameAssets) {
