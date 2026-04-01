@@ -20,9 +20,19 @@ impl Player {
         // Placeholder si le joueur bouge dans le futur
     }
 
-    pub fn draw(&self) {
-        // Placeholder visuel : un cercle blanc au centre
-        draw_circle(self.position.x, self.position.y, 20.0, WHITE);
+    pub fn draw(&self, assets: &crate::core::assets::GameAssets, offset: Vec2) {
+        let size = 40.0;
+
+        draw_texture_ex(
+            &assets.player,
+            self.position.x - size / 2.0 + offset.x,
+            self.position.y - size / 2.0 + offset.y,
+            WHITE,
+            DrawTextureParams {
+                dest_size: Some(vec2(size, size)),
+                ..Default::default()
+            },
+        );
     }
 
     pub fn is_alive(&self) -> bool {

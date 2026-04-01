@@ -1,4 +1,5 @@
 use macroquad::prelude::*;
+use macroquad::audio::{play_sound, PlaySoundParams};
 use ::rand::Rng;
 use ::rand::thread_rng;
 
@@ -8,9 +9,11 @@ use crate::core::input::{TypingState, TypingResult};
 use crate::ui::renderer;
 
 pub struct VirusEntry {
-    pub virus: Virus, // le virus
-    pub typing: TypingState, // etat de frappe
-    pub active: bool, // est-il ciblè par le joueur
+    pub virus: Virus,
+    pub typing: TypingState,
+    // true si ce virus est en cours de frappe
+    pub active: bool,
+    pub glitch_timer: f32,
 }
 
 pub struct Wave {
@@ -119,8 +122,7 @@ impl Wave {
         self.entries.push(VirusEntry { virus, typing, active: false });
     }
 
-    // Gère l'état de complétion des mots pour tous les virus à l'écran
-    pub fn type_char(&mut self, c: char) {
+    pub fn type_char(&mut self, c: char, vfx: &mut crate::core::vfx::VfxManager, player_pos: Vec2, assets: &crate::core::assets::GameAssets) {
         let any_active = self.entries.iter().any(|e| e.active);
 
         if any_active {
@@ -131,14 +133,21 @@ impl Wave {
                 match entry.typing.type_char(c) {
                     TypingResult::Correct => {
                         any_correct = true;
+                        vfx.spawn_laser(player_pos, entry.virus.position, GREEN);
+                        play_sound(&assets.sound_laser, PlaySoundParams { looped: false, volume: 0.5 });
                     }
                     TypingResult::Complete => {
                         any_correct = true;
                         let hp = entry.virus.health;
                         entry.virus.take_damage(hp);
+                        vfx.spawn_laser(player_pos, entry.virus.position, GREEN);
+                        vfx.spawn_explosion(entry.virus.position, 20, entry.virus.color());
                         entry.active = false;
+                        play_sound(&assets.sound_laser, PlaySoundParams { looped: false, volume: 0.5 });
                     }
                     TypingResult::Wrong => {
+                        // Ce virus diverge — on le désactive et reset, et on ajoute un glitch visuel
+                        entry.glitch_timer = 0.2;
                         entry.active = false;
                         entry.typing.reset();
                     }
@@ -146,8 +155,12 @@ impl Wave {
             }
 
             if !any_correct {
-                // Cas où le joueur se trompe
+                vfx.trigger_shake(3.0, 0.1);
+                play_sound(&assets.sound_error, PlaySoundParams { looped: false, volume: 1.0 });
                 for entry in self.entries.iter_mut() {
+                    if entry.active {
+                        entry.glitch_timer = 0.2;
+                    }
                     entry.typing.reset();
                     entry.active = false;
                 }
@@ -158,12 +171,30 @@ impl Wave {
                 match entry.typing.type_char(c) {
                     TypingResult::Correct => {
                         entry.active = true;
+                        found = true;
+                        vfx.spawn_laser(player_pos, entry.virus.position, GREEN);
+                        play_sound(&assets.sound_laser, PlaySoundParams { looped: false, volume: 0.5 });
                     }
                     TypingResult::Complete => {
                         let hp = entry.virus.health;
                         entry.virus.take_damage(hp);
+                        vfx.spawn_laser(player_pos, entry.virus.position, GREEN);
+                        vfx.spawn_explosion(entry.virus.position, 20, entry.virus.color());
+                        found = true;
+                        play_sound(&assets.sound_laser, PlaySoundParams { looped: false, volume: 0.5 });
+                    }
+                    TypingResult::Wrong => {
+                        // On ne fait rien ici pour l'instant, on attend de voir si un autre virus correspond
                     }
                     TypingResult::Wrong => {}
+                }
+            }
+
+            // Mauvaise lettre — rien ne correspond, on glitch tous les virus
+            if !found {
+                play_sound(&assets.sound_error, PlaySoundParams { looped: false, volume: 1.0 });
+                for entry in self.entries.iter_mut() {
+                    entry.glitch_timer = 0.2;
                 }
             }
         }
@@ -185,6 +216,9 @@ impl Wave {
         let before = self.entries.len();
         for entry in &mut self.entries {
             entry.virus.update(dt, player_pos);
+            if entry.glitch_timer > 0.0 {
+                entry.glitch_timer -= dt;
+            }
         }
         self.entries.retain(|e| e.virus.is_alive());
         let after = self.entries.len();
@@ -192,21 +226,32 @@ impl Wave {
         self.killed += before - after;
     }
 
-    pub fn draw(&self) {
+    pub fn draw(&self, assets: &crate::core::assets::GameAssets, global_offset: Vec2) {
         for entry in self.entries.iter() {
-            entry.virus.draw();
+            let mut offset_x = global_offset.x;
+            let mut offset_y = global_offset.y;
+            let mut color_override = WHITE;
+            
+            if entry.glitch_timer > 0.0 {
+                offset_x += rand::gen_range(-5.0, 5.0);
+                offset_y += rand::gen_range(-5.0, 5.0);
+                color_override = if rand::gen_range(0, 2) == 0 { RED } else { BLUE };
+            }
+            
+            entry.virus.draw_with_offset(assets, offset_x, offset_y, color_override);
 
-            let x = entry.virus.position.x - 20.0;
-            let y = entry.virus.position.y - entry.virus.radius() - 8.0;
+            let x = entry.virus.position.x - 20.0 + offset_x;
+            let y = entry.virus.position.y - entry.virus.radius() - 8.0 + offset_y;
 
             if entry.active {
                 renderer::draw_virus_word(
                     entry.typing.typed_part(),
                     entry.typing.remaining_part(),
                     x, y,
+                    Some(&assets.font),
                 );
             } else {
-                renderer::draw_virus_word("", &entry.virus.word, x, y);
+                renderer::draw_virus_word("", &entry.virus.word, x, y, Some(&assets.font));
             }
         }
 

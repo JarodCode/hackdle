@@ -36,17 +36,31 @@ impl Virus {
         self.position += direction * self.speed * dt; // on déplace le virus à vitesse .speed (dt : rend le déplacement indépendant du framerate)
     }
 
-    pub fn draw(&self) {
-        let color = match self.kind {
-            VirusKind::Fast    => GREEN,
-            VirusKind::Classic => RED,
-            VirusKind::Heavy   => ORANGE,
-            VirusKind::Boss    => PURPLE,
+    pub fn draw(&self, assets: &crate::core::assets::GameAssets) {
+        self.draw_with_offset(assets, 0.0, 0.0, WHITE);
+    }
+
+    pub fn draw_with_offset(&self, assets: &crate::core::assets::GameAssets, offset_x: f32, offset_y: f32, color_override: Color) {
+        let tex = match self.kind {
+            VirusKind::Fast => &assets.virus_fast,
+            VirusKind::Classic => &assets.virus_classic,
+            VirusKind::Heavy => &assets.virus_heavy,
+            VirusKind::Boss => &assets.virus_boss,
         };
 
-        // Placeholder visuel : un cercle coloré
-        // Le mot est affiché par wave.rs qui connaît l'état de frappe
-        draw_circle(self.position.x, self.position.y, self.radius(), color);
+        let radius = self.radius();
+        let size = radius * 2.0;
+
+        draw_texture_ex(
+            tex,
+            self.position.x - radius + offset_x,
+            self.position.y - radius + offset_y,
+            color_override,
+            DrawTextureParams {
+                dest_size: Some(vec2(size, size)),
+                ..Default::default()
+            },
+        );
     }
 
     pub fn radius(&self) -> f32 {
@@ -55,6 +69,15 @@ impl Virus {
             VirusKind::Classic => 18.0,
             VirusKind::Heavy   => 26.0,
             VirusKind::Boss    => 40.0,
+        }
+    }
+
+    pub fn color(&self) -> Color {
+        match self.kind {
+            VirusKind::Fast    => GREEN,
+            VirusKind::Classic => RED,
+            VirusKind::Heavy   => ORANGE,
+            VirusKind::Boss    => PURPLE,
         }
     }
 
