@@ -27,6 +27,7 @@ pub struct VfxManager {
 }
 
 impl VfxManager {
+    // Initialise les buffers d'effets temporaires.
     pub fn new() -> Self {
         Self {
             particles: Vec::new(),
@@ -37,6 +38,7 @@ impl VfxManager {
         }
     }
 
+    // Met à jour la durée de vie des effets et nettoie ceux expirés.
     pub fn update(&mut self, dt: f32) {
         self.timer += dt;
 
@@ -65,6 +67,7 @@ impl VfxManager {
         }
     }
 
+    // Rend toutes les couches d'effets en tenant compte de l'offset global.
     pub fn draw(&self, offset: Vec2) {
         // Draw particles
         for p in &self.particles {
@@ -89,6 +92,7 @@ impl VfxManager {
         }
     }
 
+    // Génère une rafale de particules autour d'un point d'impact.
     pub fn spawn_explosion(&mut self, pos: Vec2, count: usize, color: Color) {
         for _ in 0..count {
             let angle = rand::gen_range(0.0, PI * 2.0);
@@ -106,6 +110,7 @@ impl VfxManager {
         }
     }
 
+    // Ajoute un tir laser éphémère entre deux positions.
     pub fn spawn_laser(&mut self, start: Vec2, end: Vec2, color: Color) {
         self.lasers.push(Laser {
             start,
@@ -116,11 +121,13 @@ impl VfxManager {
         });
     }
 
+    // Déclenche un tremblement d'écran temporaire.
     pub fn trigger_shake(&mut self, intensity: f32, duration: f32) {
         self.shake_intensity = intensity;
         self.shake_duration = duration;
     }
 
+    // Retourne l'offset de shake à appliquer au rendu principal.
     pub fn get_shake_offset(&self) -> Vec2 {
         if self.shake_intensity > 0.0 {
             vec2(

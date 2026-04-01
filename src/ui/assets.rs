@@ -14,6 +14,7 @@ pub struct GameAssets {
 }
 
 impl GameAssets {
+    // Charge toutes les ressources statiques utilisées par la partie.
     pub async fn load() -> Self {
         Self {
             player: load_texture("assets/Player.png").await.unwrap(),

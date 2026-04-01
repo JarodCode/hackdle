@@ -8,6 +8,7 @@ pub struct Player {
 }
 
 impl Player {
+    // Initialise un joueur avec les stats de départ d'une run.
     pub fn new() -> Self {
         Self {
             // On positionne le joueur au centre de l'écran (pb si on change la taille de l'écran)
@@ -16,10 +17,12 @@ impl Player {
         }
     }
 
+    // Point d'extension pour une future logique de déplacement/abilities.
     pub fn update(&mut self, _dt: f32) {
         // Placeholder si le joueur bouge dans le futur
     }
 
+    // Rendu du joueur avec prise en compte de l'offset global (shake/caméra).
     pub fn draw(&self, assets: &crate::ui::assets::GameAssets, offset: Vec2) {
         let size = 150.0;
 
@@ -35,10 +38,12 @@ impl Player {
         );
     }
 
+    // Utilisé par les transitions d'état (InWave -> GameOver).
     pub fn is_alive(&self) -> bool {
         self.health.0 > 0
     }
 
+    // Applique des dégâts sans jamais passer sous 0.
     pub fn take_damage(&mut self, amount: u32) {
         self.health.0 = self.health.0.saturating_sub(amount); // saturing_sub = bloque la soustraction à 0
     }
