@@ -12,7 +12,7 @@ const SUMMONER_BOSS_BASE_CYCLES: usize = 2;
 const SUMMONER_BOSS_SEED_OFFSET: usize = 17;
 const REVERSE_BOSS_SEED_OFFSET: usize = 31;
 const SUMMONER_BOSS_MINIONS_PER_CYCLE: usize = 4;
-const SUMMONER_RADIUS: f32 = 80.0;
+const SUMMONER_RADIUS: f32 = 140.0;
 
 pub fn is_boss_wave(wave_number: u32) -> bool {
     wave_number > 0 && wave_number % BOSS_EVERY_N_WAVES == 0
