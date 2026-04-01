@@ -139,7 +139,6 @@ impl Wave {
 
     fn spawn_boss_entry(&mut self) {
         let kind = boss::boss_kind_for_wave(self.number);
-        // Spawn du boss plus loin du centre pour laisser une vraie phase d'approche.
         let center = Vec2::new(screen_width() / 2.0, screen_height() / 2.0);
         let radius = screen_width().min(screen_height()) * 0.4;
         let position = center + Vec2::new(0.0, -radius);
