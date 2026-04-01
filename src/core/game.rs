@@ -3,9 +3,9 @@ use std::cmp::Ordering;
 use macroquad::prelude::*;
 
 use crate::accounts::UserProfile;
-use crate::core::assets::GameAssets;
+use crate::ui::assets::GameAssets;
 use crate::core::player::Player;
-use crate::core::vfx::VfxManager;
+use crate::ui::vfx::VfxManager;
 use crate::core::wave::Wave;
 use crate::data::{SaveData, Storage};
 use crate::ui::renderer;
@@ -36,7 +36,7 @@ pub struct Game {
     run_recorded: bool,
     assets: Rc<GameAssets>,
     vfx: VfxManager,
-    matrix_bg: crate::core::matrix_bg::MatrixBackground,
+    matrix_bg: crate::ui::matrix_bg::MatrixBackground,
 }
 
 impl Game {
@@ -57,7 +57,7 @@ impl Game {
             run_recorded: true,
             assets,
             vfx: VfxManager::new(),
-            matrix_bg: crate::core::matrix_bg::MatrixBackground::new(),
+            matrix_bg: crate::ui::matrix_bg::MatrixBackground::new(),
         }
     }
 

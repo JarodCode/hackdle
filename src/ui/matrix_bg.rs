@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use crate::core::assets::GameAssets;
+use crate::ui::assets::GameAssets;
 
 pub struct MatrixEntity {
     x: f32,

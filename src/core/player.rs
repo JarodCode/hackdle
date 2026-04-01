@@ -20,7 +20,7 @@ impl Player {
         // Placeholder si le joueur bouge dans le futur
     }
 
-    pub fn draw(&self, assets: &crate::core::assets::GameAssets, offset: Vec2) {
+    pub fn draw(&self, assets: &crate::ui::assets::GameAssets, offset: Vec2) {
         let size = 150.0;
 
         draw_texture_ex(

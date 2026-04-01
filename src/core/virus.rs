@@ -65,11 +65,11 @@ impl Virus {
         self.position += direction * self.speed * dt; // on déplace le virus à vitesse .speed (dt : rend le déplacement indépendant du framerate)
     }
 
-    pub fn draw(&self, assets: &crate::core::assets::GameAssets) {
+    pub fn draw(&self, assets: &crate::ui::assets::GameAssets) {
         self.draw_with_offset(assets, 0.0, 0.0, WHITE);
     }
 
-    pub fn draw_with_offset(&self, assets: &crate::core::assets::GameAssets, offset_x: f32, offset_y: f32, color_override: Color) {
+    pub fn draw_with_offset(&self, assets: &crate::ui::assets::GameAssets, offset_x: f32, offset_y: f32, color_override: Color) {
         let tex = match self.kind {
             VirusKind::Fast => &assets.virus_fast,
             VirusKind::Classic => &assets.virus_classic,
