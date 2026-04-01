@@ -1,5 +1,6 @@
 pub mod assets;
 pub mod game;
+pub mod boss;
 pub mod player;
 pub mod vfx;
 pub mod virus;
