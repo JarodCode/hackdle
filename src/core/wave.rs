@@ -371,21 +371,7 @@ impl Wave {
 
             let x = entry.virus.position.x - 20.0 + offset_x;
             let y = entry.virus.position.y - entry.virus.radius() - 8.0 + offset_y;
-
-            if matches!(entry.virus.kind, VirusKind::ReverseBoss) {
-                // Boss inverse: inversion uniquement visuelle, la saisie reste normale.
-                let visible = boss::visual_word(entry.virus.kind, &entry.virus.word);
-                renderer::draw_virus_word("", &visible, x, y, Some(&assets.font));
-            } else if entry.active {
-                renderer::draw_virus_word(
-                    entry.typing.typed_part(),
-                    entry.typing.remaining_part(),
-                    x, y,
-                    Some(&assets.font),
-                );
-            } else {
-                renderer::draw_virus_word("", &entry.virus.word, x, y, Some(&assets.font));
-            }
+            self.draw_entry_word(entry, x, y, assets);
         }
 
         // Compteur de kills en bas de l'écran
@@ -401,5 +387,56 @@ impl Wave {
 
     pub fn is_complete(&self) -> bool {
         self.killed >= self.to_kill && self.entries.is_empty()
+    }
+
+    fn draw_entry_word(&self, entry: &VirusEntry, x: f32, y: f32, assets: &crate::core::assets::GameAssets) {
+        if matches!(entry.virus.kind, VirusKind::ReverseBoss) {
+            self.draw_reverse_boss_word(entry, x, y, assets);
+        } else if entry.active {
+            renderer::draw_virus_word(
+                entry.typing.typed_part(),
+                entry.typing.remaining_part(),
+                x,
+                y,
+                Some(&assets.font),
+            );
+        } else {
+            renderer::draw_virus_word("", &entry.virus.word, x, y, Some(&assets.font));
+        }
+    }
+
+    fn draw_reverse_boss_word(&self, entry: &VirusEntry, x: f32, y: f32, assets: &crate::core::assets::GameAssets) {
+        // Boss inverse: inversion uniquement visuelle, la saisie reste normale.
+        let full = boss::visual_word(entry.virus.kind, &entry.virus.word);
+
+        if !entry.active {
+            renderer::draw_virus_word("", &full, x, y, Some(&assets.font));
+            return;
+        }
+
+        // 1) Mot inversé complet (base blanche)
+        renderer::draw_virus_word("", &full, x, y, Some(&assets.font));
+
+        // 2) Partie tapée inversée (overlay vert, aligné à droite)
+        let typed_rev: String = entry.typing.typed_part().chars().rev().collect();
+        if typed_rev.is_empty() {
+            return;
+        }
+
+        let font_size = 18u16;
+        let full_w = measure_text(&full, Some(&assets.font), font_size, 1.0).width;
+        let typed_w = measure_text(&typed_rev, Some(&assets.font), font_size, 1.0).width;
+
+        draw_text_ex(
+            &typed_rev,
+            x + full_w - typed_w,
+            y,
+            TextParams {
+                font_size,
+                font: Some(&assets.font),
+                color: GREEN,
+                ..Default::default()
+            },
+        );
     }
 }
