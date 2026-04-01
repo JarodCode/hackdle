@@ -47,6 +47,14 @@ impl Game {
         let save_data = Storage::load();
         let leaderboard = Self::build_leaderboard(&save_data.profiles);
 
+        macroquad::audio::play_sound(
+            &assets.bg_music,
+            macroquad::audio::PlaySoundParams {
+                looped: true, // Pour que ca boucle
+                volume: 0.15,  // Volume bas pour qu'on entende bien les lasers et les erreurs
+            },
+        );
+
         Self {
             state: GameState::Login,
             player: Player::new(),
@@ -115,7 +123,7 @@ impl Game {
         }
 
         if is_key_pressed(KeyCode::Escape) {
-            self.login_input.clear();
+            std::process::exit(0);
         }
 
         if is_key_pressed(KeyCode::Enter) {
@@ -174,11 +182,20 @@ impl Game {
 
             if damage_taken > 0 {
                 self.player.take_damage(damage_taken);
+                self.vfx.trigger_shake(10.0, 0.3);
+
+                macroquad::audio::play_sound(
+                    &self.assets.sound_hit,
+                    macroquad::audio::PlaySoundParams {
+                        looped: false,
+                        volume: 0.7,
+                    },
+                );
             }
 
             // La mort prend la priorité sur la fin de vague
             if !self.player.is_alive() {
-                self.state = GameState::GameOver;
+                self.handle_player_defeat();
             } else if wave.is_complete() {
                 self.state = GameState::BetweenWaves;
             }
@@ -217,6 +234,10 @@ impl Game {
 
         if is_key_pressed(KeyCode::L) {
             self.logout();
+        }
+
+        if is_key_pressed(KeyCode::Escape) {
+            std::process::exit(0);
         }
     }
 
@@ -328,9 +349,11 @@ impl Game {
         // 4. Options d'action ("Boutons")
         let option1 = "> PRESS [ENTER] TO INITIALIZE NEW RUN <";
         let option2 = "PRESS [L] TO DISCONNECT AGENT";
+        let option3 = "PRESS [ESC] TO QUIT SYSTEM";
 
         let op1_dim = measure_text(option1, Some(&self.assets.font), 24, 1.0);
         let op2_dim = measure_text(option2, Some(&self.assets.font), 20, 1.0);
+        let op3_dim = measure_text(option3, Some(&self.assets.font), 20, 1.0);
 
         // Effet de clignotement fluide pour "Play Again"
         let alpha = (get_time() * 4.0).sin().abs() as f32; // Oscille entre 0.0 et 1.0
@@ -349,6 +372,13 @@ impl Game {
             center_x - op2_dim.width / 2.0,
             center_y + 130.0,
             TextParams { font_size: 20, font: Some(&self.assets.font), color: GRAY, ..Default::default() }
+        );
+
+        draw_text_ex(
+            option3,
+            center_x - op3_dim.width / 2.0,
+            center_y + 160.0,
+            TextParams { font_size: 20, font: Some(&self.assets.font), color: RED, ..Default::default() }
         );
 
         renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
@@ -466,6 +496,7 @@ impl Game {
         self.current_user = None;
         self.login_input.clear();
         self.reset_run_state();
+        while let Some(_) = get_char_pressed() {}
         self.state = GameState::Login;
     }
 

@@ -24,15 +24,25 @@ impl Player {
 
     // Rendu du joueur avec prise en compte de l'offset global (shake/caméra).
     pub fn draw(&self, assets: &crate::ui::assets::GameAssets, offset: Vec2) {
-        let size = 150.0;
+        // La largeur souhaitée
+        let target_width = 280.0;
+        
+        // On récupère les dimensions d'origine de l'image
+        let tex_w = assets.player.width();
+        let tex_h = assets.player.height();
+        
+        // On calcule la hauteur pour garder les proportions exactes
+        let target_height = target_width * (tex_h / tex_w);
 
         draw_texture_ex(
             &assets.player,
-            self.position.x - size / 2.0 + offset.x,
-            self.position.y - size / 2.0 + offset.y,
+            // On centre l'image en utilisant les nouvelles dimensions calculées
+            self.position.x - target_width / 2.0 + offset.x,
+            self.position.y - target_height / 2.0 + offset.y,
             WHITE,
             DrawTextureParams {
-                dest_size: Some(vec2(size, size)),
+                // On applique les dimensions proportionnelles ici
+                dest_size: Some(vec2(target_width, target_height)),
                 ..Default::default()
             },
         );

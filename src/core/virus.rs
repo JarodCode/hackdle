@@ -26,9 +26,9 @@ impl VirusKind {
     // Rayon utilisé pour collision, rendu et zone de contact joueur.
     pub fn radius(self) -> f32 {
         match self {
-            Self::Fast => 28.0,
-            Self::Classic => 36.0,
-            Self::Heavy => 54.0,
+            Self::Fast => 40.0,
+            Self::Classic => 45.0,
+            Self::Heavy => 55.0,
             Self::Boss => 70.0,
             Self::SummonerBoss => 70.0,
             Self::ReverseBoss => 70.0,
@@ -81,9 +81,9 @@ impl Virus {
             VirusKind::Fast => &assets.virus_fast,
             VirusKind::Classic => &assets.virus_classic,
             VirusKind::Heavy => &assets.virus_heavy,
-            VirusKind::Boss => &assets.virus_boss,
-            VirusKind::SummonerBoss => &assets.virus_boss,
-            VirusKind::ReverseBoss => &assets.virus_boss,
+            VirusKind::Boss => &assets.boss_python,
+            VirusKind::SummonerBoss => &assets.boss_c,
+            VirusKind::ReverseBoss => &assets.boss_rust,
         };
 
         let radius = self.radius();
