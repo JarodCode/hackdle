@@ -77,7 +77,6 @@ impl Game {
 
             // Vérifie si un virus a atteint le joueur
             let mut damage_taken = 0u32;
-            let mut kills = 0usize;
             for entry in wave.entries.iter_mut() {
                 let contact_radius = entry.virus.radius() + 20.0;
                 if entry.virus.distance_to(player_pos) < contact_radius {
