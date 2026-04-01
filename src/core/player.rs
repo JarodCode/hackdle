@@ -21,7 +21,7 @@ impl Player {
     }
 
     pub fn draw(&self, assets: &crate::core::assets::GameAssets, offset: Vec2) {
-        let size = 40.0;
+        let size = 150.0;
 
         draw_texture_ex(
             &assets.player,

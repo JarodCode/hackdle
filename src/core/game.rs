@@ -126,6 +126,10 @@ impl Game {
         if is_key_pressed(KeyCode::L) {
             self.logout();
         }
+
+        if is_key_pressed(KeyCode::Escape) {
+            std::process::exit(0);
+        }
     }
 
     fn update_wave(&mut self, dt: f32) {
@@ -143,7 +147,7 @@ impl Game {
                 wave.type_char(c, &mut self.vfx, player_pos, &self.assets);
             }
         }
-        let mut hits = 0u32;
+        let hits = 0u32;
 
         if let Some(wave) = &mut self.wave {
             wave.update(dt, player_pos);
@@ -151,7 +155,7 @@ impl Game {
             // Vérifie si un virus a atteint le joueur
             let mut damage_taken = 0u32;
             for entry in wave.entries.iter_mut() {
-                let contact_radius = entry.virus.radius() + 20.0;
+                let contact_radius = entry.virus.radius() + 75.0;
                 if entry.virus.distance_to(player_pos) < contact_radius {
                     damage_taken += 20;
                     entry.virus.bounce_away(player_pos);
@@ -245,6 +249,12 @@ impl Game {
             20.0,
             center_y + 32.0,
             TextParams { font_size: 20, font: Some(&self.assets.font), color: GRAY, ..Default::default() },
+        );
+        draw_text_ex(
+            "PRESS <ESC> TO TERMINATE",
+            20.0,
+            center_y + 64.0,
+            TextParams { font_size: 20, font: Some(&self.assets.font), color: DARKGRAY, ..Default::default() },
         );
 
         renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
