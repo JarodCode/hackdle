@@ -24,12 +24,12 @@ impl VirusKind {
 
     pub fn radius(self) -> f32 {
         match self {
-            Self::Fast => 12.0,
-            Self::Classic => 18.0,
-            Self::Heavy => 26.0,
-            Self::Boss => 40.0,
-            Self::SummonerBoss => 44.0,
-            Self::ReverseBoss => 42.0,
+            Self::Fast => 28.0,
+            Self::Classic => 36.0,
+            Self::Heavy => 54.0,
+            Self::Boss => 70.0,
+            Self::SummonerBoss => 70.0,
+            Self::ReverseBoss => 70.0,
         }
     }
 
