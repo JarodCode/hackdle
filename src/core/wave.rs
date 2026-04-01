@@ -205,16 +205,7 @@ impl Wave {
         self.spawned += 1;
         let typing = TypingState::new(word.clone());
         let virus = Virus::new(position, kind, word);
-        self.entries.push(VirusEntry {
-            virus,
-            typing,
-            active: false,
-            boss_phase: 0,
-            boss_words_remaining: 0,
-            boss_spawn_cycles_done: 0,
-            summoned_by_boss: false,
-            glitch_timer: 0.0,
-        });
+        self.entries.push(VirusEntry { virus, typing, active: false, glitch_timer: 0.0});
     }
 
     pub fn type_char(&mut self, c: char, vfx: &mut crate::core::vfx::VfxManager, player_pos: Vec2, assets: &crate::core::assets::GameAssets) {
