@@ -3,7 +3,14 @@ use macroquad::audio::{play_sound, PlaySoundParams};
 use ::rand::Rng;
 use ::rand::thread_rng;
 
-use crate::core::boss;
+use crate::core::boss::{
+    self,
+    VirusBehavior,
+    BossState,
+    SummonerState,
+    ReverseBossState,
+    SummonerResult,
+};
 use crate::core::virus::{Virus, VirusKind};
 use crate::data::words::{Difficulty, WordList};
 use crate::ui::input::{TypingState, TypingResult};
@@ -13,9 +20,7 @@ pub struct VirusEntry {
     pub virus: Virus,
     pub typing: TypingState,
     pub active: bool,
-    pub boss_phase: usize,
-    pub boss_words_remaining: usize,
-    pub boss_spawn_cycles_done: usize,
+    pub behavior: VirusBehavior,
     pub summoned_by_boss: bool,
     pub glitch_timer: f32,
 }
@@ -32,30 +37,53 @@ pub struct Wave {
 
 impl VirusEntry {
     fn handle_completion(&mut self, wave_number: u32, has_alive_summoned: bool) -> Option<(usize, Vec2)> {
-        let cycles_before = self.boss_spawn_cycles_done;
-
-        boss::on_word_complete(
-            wave_number,
-            &mut self.virus,
-            &mut self.typing,
-            &mut self.active,
-            &mut self.boss_phase,
-            &mut self.boss_words_remaining,
-            &mut self.boss_spawn_cycles_done,
-            has_alive_summoned,
-        );
-
-        let cycles_after = self.boss_spawn_cycles_done;
-        boss::should_spawn_summoned_minions(
-            self.virus.kind,
-            wave_number,
-            cycles_before,
-            cycles_after,
-        )
-        .map(|cycle| (cycle, self.virus.position))
+        match &mut self.behavior {
+            VirusBehavior::Boss(state) => {
+                let dead = boss::on_boss_word_complete(
+                    state,
+                    wave_number,
+                    self.virus.kind,
+                    &mut self.virus.word,
+                    &mut self.typing,
+                );
+                if dead { self.virus.kill(); }
+                None
+            }
+            VirusBehavior::ReverseBoss(state) => {
+                let dead = boss::on_reverse_boss_word_complete(
+                    state,
+                    wave_number,
+                    &mut self.virus.word,
+                    &mut self.typing,
+                );
+                if dead { self.virus.kill(); }
+                None
+            }
+            VirusBehavior::SummonerBoss(state) => {
+                match boss::on_summoner_word_complete(
+                    state,
+                    wave_number,
+                    has_alive_summoned,
+                    &mut self.virus.word,
+                    &mut self.typing,
+                ) {
+                    SummonerResult::SpawnMinions(cycle) => {
+                        Some((cycle, self.virus.position))
+                    }
+                    SummonerResult::Killed => {
+                        self.virus.kill();
+                        None
+                    }
+                    SummonerResult::NextWord => None,
+                }
+            }
+            VirusBehavior::Normal => {
+                self.virus.kill();
+                None
+            }
+        }
     }
 }
-
 impl Wave {
     pub fn new(number: u32) -> Self {
         let to_kill = if boss::is_boss_wave(number) { 1 } else { Self::kills_required(number) };
@@ -122,9 +150,11 @@ impl Wave {
 
     fn spawn_boss_entry(&mut self) {
         let kind = boss::boss_kind_for_wave(self.number);
-        let center = Vec2::new(screen_width() / 2.0, screen_height() / 2.0);
-        let radius = screen_width().min(screen_height()) * 0.4;
-        let position = center + Vec2::new(0.0, -radius);
+        let angle: f32 = thread_rng().gen_range(0.0..std::f32::consts::TAU);
+        let radius = screen_width().hypot(screen_height()) / 2.0;
+        let cx = screen_width() / 2.0;
+        let cy = screen_height() / 2.0;
+        let position = Vec2::new(cx + angle.cos() * radius, cy + angle.sin() * radius);
         let word = boss::first_boss_word(self.number, kind);
         let typing = TypingState::new(word.clone());
         let virus = Virus::new(position, kind, word);
@@ -133,9 +163,7 @@ impl Wave {
             virus,
             typing,
             active: false,
-            boss_phase: 0,
-            boss_words_remaining: boss::initial_boss_words_remaining(kind, self.number),
-            boss_spawn_cycles_done: 0,
+            behavior: VirusBehavior::for_kind(kind, self.number),
             summoned_by_boss: false,
             glitch_timer: 0.0,
         });
@@ -152,9 +180,7 @@ impl Wave {
                 virus,
                 typing,
                 active: false,
-                boss_phase: 0,
-                boss_words_remaining: 0,
-                boss_spawn_cycles_done: 0,
+                behavior: VirusBehavior::Normal,
                 summoned_by_boss: true,
                 glitch_timer: 0.0,
             });
@@ -188,9 +214,7 @@ impl Wave {
             virus,
             typing,
             active: false,
-            boss_phase: 0,
-            boss_words_remaining: 0,
-            boss_spawn_cycles_done: 0,
+            behavior: VirusBehavior::Normal,
             summoned_by_boss: false,
             glitch_timer: 0.0,
         });

@@ -2,9 +2,7 @@ use macroquad::prelude::*;
 
 use crate::data::UserProfile;
 use crate::ui::assets::GameAssets;
-use crate::core::boss;
 use crate::core::player::Player;
-use crate::core::virus::VirusKind;
 use crate::core::wave::VirusEntry;
 
 pub fn draw_hud(player: &Player, wave_number: u32, font: Option<&Font>) {
@@ -119,18 +117,17 @@ pub fn draw_wave(
         let x = entry.virus.position.x - 20.0 + offset_x;
         let y = entry.virus.position.y - entry.virus.radius() - 8.0 + offset_y;
 
-        if matches!(entry.virus.kind, VirusKind::ReverseBoss) {
-            let visible = boss::visual_word(entry.virus.kind, &entry.virus.word);
-            draw_virus_word("", &visible, x, y, Some(&assets.font));
-        } else if entry.active {
+        if entry.active {
+            let visible = entry.behavior.visual_word(entry.typing.remaining_part());
             draw_virus_word(
                 entry.typing.typed_part(),
-                entry.typing.remaining_part(),
+                &visible,
                 x, y,
                 Some(&assets.font),
             );
         } else {
-            draw_virus_word("", &entry.virus.word, x, y, Some(&assets.font));
+            let visible = entry.behavior.visual_word(&entry.virus.word);
+            draw_virus_word("", &visible, x, y, Some(&assets.font));
         }
     }
 

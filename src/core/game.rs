@@ -414,7 +414,7 @@ impl Game {
     }
 
     fn reset_run_state(&mut self) {
-        self.wave_number = 0;
+        self.wave_number = 4;
         self.wave = None;
         self.player = Player::new();
         self.run_recorded = true;
