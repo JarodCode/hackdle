@@ -1,8 +1,8 @@
 use macroquad::prelude::*;
 
 use crate::core::virus::{Virus, VirusKind};
+use crate::core::input::TypingState;
 use crate::data::words::{Difficulty, WordList};
-use crate::ui::input::TypingState;
 
 pub const BOSS_EVERY_N_WAVES: u32 = 5;
 const CLASSIC_BOSS_WORDS: usize = 4;
