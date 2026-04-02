@@ -5,13 +5,13 @@ use crate::ui::assets::GameAssets;
 use crate::core::player::Player;
 use crate::core::wave::VirusEntry;
 
-// Point d'entrée HUD: intégrité système + identifiant de vague.
+// Point d'entrée HUD: intégrité système + identifiant de vague
 pub fn draw_hud(player: &Player, wave_number: u32, font: Option<&Font>) {
     draw_health_bar(player, font);
     draw_wave_number(wave_number, font);
 }
 
-// Barre de vie textuelle + visuelle avec code couleur par seuil.
+// Barre de vie textuelle + visuelle avec code couleur par seuil
 fn draw_health_bar(player: &Player, font: Option<&Font>) {
     let x = 20.0;
     let y = 20.0;
@@ -45,7 +45,7 @@ fn draw_health_bar(player: &Player, font: Option<&Font>) {
     draw_rectangle_lines(x, bar_y, bar_width, bar_height, 2.0, WHITE);
 }
 
-// Affiche la vague courante dans le coin supérieur droit.
+// Affiche la vague courante dans le coin supérieur droit
 fn draw_wave_number(wave_number: u32, font: Option<&Font>) {
     let text = format!("WAVE_ID: {:03}", wave_number);
     let x = screen_width() - 160.0;
@@ -97,7 +97,7 @@ pub fn draw_scoreboard(entries: &[UserProfile], title: &str, max_rows: usize, fo
 
 // --- Rendu de la vague (extrait de wave.rs) ---
 
-// Rend tous les ennemis actifs et leur état de saisie, puis le compteur de progression.
+// Rend tous les ennemis actifs et leur état de saisie, puis le compteur de progression
 pub fn draw_wave(
     entries: &[VirusEntry],
     killed: usize,
@@ -138,7 +138,7 @@ pub fn draw_wave(
     draw_kill_counter(killed, to_kill);
 }
 
-// Indicateur global d'avancement de la vague en bas d'écran.
+// Indicateur global d'avancement de la vague en bas d'écran
 fn draw_kill_counter(killed: usize, to_kill: usize) {
     let text = format!("{} / {}", killed, to_kill);
     let x = screen_width() / 2.0 - 30.0;

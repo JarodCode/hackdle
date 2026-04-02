@@ -6,9 +6,6 @@ use ::rand::thread_rng;
 use crate::core::boss::{
     self,
     VirusBehavior,
-    BossState,
-    SummonerState,
-    ReverseBossState,
     SummonerResult,
 };
 use crate::core::virus::{Virus, VirusKind};
@@ -18,25 +15,25 @@ use crate::ui::renderer;
 
 pub struct VirusEntry {
     pub virus: Virus,
-    pub typing: TypingState,
-    pub active: bool,
-    pub behavior: VirusBehavior,
-    pub summoned_by_boss: bool,
+    pub typing: TypingState, // Avancée de l'écriture du mot
+    pub active: bool, // Est-ce que le joueur cible ce virus
+    pub behavior: VirusBehavior, // Normal, Boss, SummoningBoss ou ReverseBoss (Boos.rs)
+    pub summoned_by_boss: bool, // Est-ce que le virus a été invoqué par le summoning Boss
     pub glitch_timer: f32,
 }
 
 pub struct Wave {
-    pub number: u32,
-    pub entries: Vec<VirusEntry>,
-    pub to_kill: usize,
-    pub killed: usize,
-    spawned: usize,
-    elapsed: f32,
-    next_spawn_in: f32,
+    pub number: u32, // Numéro de vague (redondant)
+    pub entries: Vec<VirusEntry>, // Les virus à l'écran
+    pub to_kill: usize, // Le nombre de virus qu'il reste à tuer
+    pub killed: usize, // Le nombre de virus tuer
+    spawned: usize, // Le nombre de virus qui sont apparu
+    elapsed: f32, // Le temps passé
+    next_spawn_in: f32, // Délais entre deux spawn
 }
 
 impl VirusEntry {
-    // Applique la règle de complétion selon le comportement du virus.
+    // SI le virus à faire apparaitre est un boss alors on complète son comportement selon le type de boss que c'est
     fn handle_completion(&mut self, wave_number: u32, has_alive_summoned: bool) -> Option<(usize, Vec2)> {
         match &mut self.behavior {
             VirusBehavior::Boss(state) => {
@@ -85,8 +82,9 @@ impl VirusEntry {
         }
     }
 }
+
 impl Wave {
-    // Initialise une vague avec son objectif de kills.
+    // Initialise une vague avec son objectif de kills
     pub fn new(number: u32) -> Self {
         let to_kill = if boss::is_boss_wave(number) { 1 } else { Self::kills_required(number) };
         Self {
@@ -100,7 +98,7 @@ impl Wave {
         }
     }
 
-    // Détermine la quantité d'ennemis à éliminer pour valider la vague.
+    // Détermine la quantité d'ennemis à éliminer selon la vague
     fn kills_required(wave_number: u32) -> usize {
         match wave_number {
             1 => 5,
@@ -110,31 +108,35 @@ impl Wave {
         }
     }
 
-    // Détermine le délai avant le prochain spawn pour rythmer la pression.
+    // Détermine le délai avant le prochain spawn
     fn spawn_delay(&self) -> f32 {
         let remaining = self.to_kill.saturating_sub(self.spawned);
         if remaining == 0 {
             return f32::MAX;
         }
-        // Plus la vague avance, plus les spawns se rapprochent, sans tomber à 0.
+        // Plus la vague avance, plus les spawns se rapprochent (logarithmique), sans tomber à 0
         (-(self.elapsed.ln() / 6.0 - 1.0)).clamp(0.0, 1.0)
     }
 
-    // Choisit la famille d'ennemi à spawn selon la progression de la partie.
+    // Selon la manche les chances d'appartition du type d'ennemie changent
     fn pick_kind(&self) -> VirusKind {
         let roll: f32 = thread_rng().gen_range(0.0..1.0);
 
         match self.number {
+            // manche 1 : que des virus classiques
             1 => VirusKind::Classic,
+            // manche 2 : quelques ennemies rapides
             2 => {
                 if roll < 0.2 { VirusKind::Fast }
                 else { VirusKind::Classic }
             }
+            // manche 3 : ennemies rapides et quelques ennemies lourds
             3 => {
                 if roll < 0.25 { VirusKind::Fast }
                 else if roll < 0.35 { VirusKind::Heavy }
                 else { VirusKind::Classic }
             }
+            // manche 4 et plus : tous les types de virus
             _ => {
                 if roll < 0.3 { VirusKind::Fast }
                 else if roll < 0.5 { VirusKind::Heavy }
@@ -155,15 +157,17 @@ impl Wave {
         }
     }
 
-    // Spawn l'unique boss attendu sur une vague boss.
+    // Spawn le boss attendu sur une vague boss (multiple de 5)
     fn spawn_boss_entry(&mut self) {
-        let kind = boss::boss_kind_for_wave(self.number);
-        let angle: f32 = thread_rng().gen_range(0.0..std::f32::consts::TAU);
-        // Spawn hors écran: le boss entre dans la scène au lieu d'apparaître au centre.
-        let radius = screen_width().hypot(screen_height()) / 2.0;
+        // position du spawn
+        let angle: f32 = std::f32::consts::FRAC_PI_2; // spawn toujours en bas 
+        let radius = screen_width().hypot(screen_height()) / 3.6;
+        // On prend le centre de l'écran
         let cx = screen_width() / 2.0;
         let cy = screen_height() / 2.0;
         let position = Vec2::new(cx + angle.cos() * radius, cy + angle.sin() * radius);
+
+        let kind = boss::boss_kind_for_wave(self.number);
         let word = boss::first_boss_word(self.number, kind);
         let typing = TypingState::new(word.clone());
         let virus = Virus::new(position, kind, word);
@@ -180,7 +184,7 @@ impl Wave {
         self.spawned += 1;
     }
 
-    // Ajoute les sbires invoqués par le SummonerBoss.
+    // Fait apparaitre les sbires invoqués par le SummonerBoss
     fn spawn_summoned_minions(&mut self, wave_number: u32, cycle: usize, center: Vec2) {
         for (position, word) in boss::build_summoned_minions(wave_number, cycle, center) {
             let typing = TypingState::new(word.clone());
@@ -197,7 +201,7 @@ impl Wave {
         }
     }
 
-    // Point d'entrée unique de spawn: boss ou ennemi standard.
+    // Fais apparaitre un virus
     fn spawn_one(&mut self) {
         if boss::is_boss_wave(self.number) {
             if self.spawned == 0 {
@@ -206,9 +210,10 @@ impl Wave {
             return;
         }
 
-        let angle: f32 = thread_rng().gen_range(0.0..std::f32::consts::TAU);
-        // Même logique que les boss: entrée périphérique pour garder la lisibilité du centre.
+        // Position d'apparition du Virus
+        let angle: f32 = thread_rng().gen_range(0.0..std::f32::consts::TAU); // TAU = 2pi, on choisit un angle aléatoire sur l'ensemble du cercle
         let radius = screen_width().hypot(screen_height()) / 2.0;
+        // On prend le centre de l'écran
         let cx = screen_width() / 2.0;
         let cy = screen_height() / 2.0;
         let position = Vec2::new(cx + angle.cos() * radius, cy + angle.sin() * radius);
@@ -232,7 +237,7 @@ impl Wave {
         });
     }
 
-    // Traite une frappe clavier et la route vers la bonne cible active.
+    // Traite une frappe clavier et la route vers la bonne cible active 
     pub fn type_char(
         &mut self,
         c: char,
@@ -240,12 +245,13 @@ impl Wave {
         player_pos: Vec2,
         assets: &crate::ui::assets::GameAssets,
     ) {
-        // Le SummonerBoss reste verrouillé tant qu'au moins un sbire est en vie.
+        // Le SummonerBoss reste verrouillé tant qu'au moins un sbire est en vie
         let has_alive_summoned = self
             .entries
             .iter()
             .any(|e| e.summoned_by_boss && e.virus.is_alive());
 
+        // On regarde si il y a encore des summoned en vie, si oui on empêche le ciblage
         if has_alive_summoned {
             for entry in self.entries.iter_mut() {
                 if matches!(entry.virus.kind, VirusKind::SummonerBoss) {
@@ -256,14 +262,14 @@ impl Wave {
         }
 
         let any_active = self.entries.iter().any(|e| e.active);
-        // Les summons sont différés pour éviter d'emprunter `self.entries`
-        // en mutation pendant qu'on l'itère.
-        let mut summon_requests: Vec<(usize, Vec2)> = Vec::new();
+        // Les summons sont différés pour éviter d'emprunter self.entries
+        let mut summon_requests: Vec<(usize, Vec2)> = Vec::new(); // mut car on push dessus ligne 285
 
+        // Si un Virus est déjà ciblé
         if any_active {
             let mut any_correct = false;
 
-            // Une fois une cible verrouillée (`active`), seule cette cible progresse.
+            // Une fois une cible verrouillée (active), seule cette cible progresse
             for entry in self.entries.iter_mut().filter(|e| e.active) {
                 match entry.typing.type_char(c) {
                     TypingResult::Correct => {
@@ -283,7 +289,7 @@ impl Wave {
                         play_sound(&assets.sound_laser, PlaySoundParams { looped: false, volume: 0.5 });
                     }
                     TypingResult::Wrong => {
-                        // Erreur sur une cible active: on casse le lock et on redemande une acquisition.
+                        // Erreur sur une cible active: on casse le lock et on redemande un ciblage
                         entry.glitch_timer = 0.2;
                         entry.active = false;
                         entry.typing.reset();
@@ -303,9 +309,12 @@ impl Wave {
                 }
             }
 
+            // Fais apparaitre les 
             for (cycle, center) in summon_requests {
                 self.spawn_summoned_minions(self.number, cycle, center);
             }
+            
+        // Aucun Virus n'est déjà ciblé
         } else {
             let mut found = false;
             let mut summon_requests_no_active: Vec<(usize, Vec2)> = Vec::new();
@@ -350,16 +359,19 @@ impl Wave {
         }
     }
 
-    // Fait avancer la simulation: spawn, mouvement et nettoyage des morts.
+    // Fait avancer la simulation: spawn, mouvement et nettoyage des morts
     pub fn update(&mut self, dt: f32, player_pos: Vec2) {
         self.elapsed += dt;
 
-        let remaining = self.to_kill.saturating_sub(self.spawned);
+        // Combien il reste de Virus a spawn
+        let remaining = self.to_kill.saturating_sub(self.spawned); // sat_sub : soustraction qui s'arrête à 0
 
-        self.next_spawn_in -= dt / 2.0;
+        self.next_spawn_in -= dt / 2.0; // 2.0 permet de règler la difficulté (future amélioration)
+        // On diminue .next_spawn_in à chaque itération en dessous de 0 le Virus spawn
         if self.next_spawn_in <= 0.0 {
             if remaining > 0 {
                 self.spawn_one();
+                // Plus le temps passe plus spawn_delay est petit
                 self.next_spawn_in = self.spawn_delay();
             }
         }
@@ -374,17 +386,16 @@ impl Wave {
         self.entries.retain(|e| e.virus.is_alive());
         let after = self.entries.len();
 
-        // Les kills sont comptés uniquement au moment où l'entrée disparaît,
-        // ce qui garde un comptage cohérent pour boss et multi-phases.
+        // Les kills sont comptés uniquement au moment où l'entrée disparaît
         self.killed += before - after;
     }
 
-    // Délègue le rendu complet de la vague au renderer UI.
+    // Délègue le rendu complet de la vague au renderer UI
     pub fn draw(&self, assets: &crate::ui::assets::GameAssets, global_offset: Vec2) {
         renderer::draw_wave(&self.entries, self.killed, self.to_kill, assets, global_offset);
     }
 
-    // Une vague est finie quand l'objectif est atteint et qu'il ne reste plus d'ennemis.
+    // Une vague est finie quand l'objectif est atteint et qu'il ne reste plus d'ennemis (pas nécessaire mais garde fou)
     pub fn is_complete(&self) -> bool {
         self.killed >= self.to_kill && self.entries.is_empty()
     }

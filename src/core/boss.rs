@@ -13,7 +13,7 @@ const REVERSE_BOSS_SEED_OFFSET: usize = 31;
 const SUMMONER_BOSS_MINIONS_PER_CYCLE: usize = 4;
 pub const SUMMONER_RADIUS: f32 = 140.0;
 
-// etats des boss chaque boss à ses propres états
+// Etats possibles du boss (sont type)
 pub struct BossState {
     pub phase: usize,
     pub words_remaining: usize,
@@ -37,8 +37,8 @@ pub enum VirusBehavior {
 }
 
 impl VirusBehavior {
-    /// Construit le bon variant selon le VirusKind et la vague.
-    /// Appelé à la création de chaque VirusEntry.
+    // Construit le bon variant selon le VirusKind et la vague
+    // Appelé à la création de chaque VirusEntry
     pub fn for_kind(kind: VirusKind, wave_number: u32) -> Self {
         match kind {
             VirusKind::Boss => Self::Boss(BossState {
@@ -58,8 +58,8 @@ impl VirusBehavior {
         }
     }
 
-    /// Retourne le mot visuel affiché au-dessus du virus.
-    /// Pour ReverseBoss, le mot est affiché à l'envers.
+    // Retourne le mot visuel affiché au-dessus du virus
+    // Cow = Clone on write (soit une ref vers un String soit un String) utile pour ReverseBoss
     pub fn visual_word<'a>(&self, word: &'a str) -> std::borrow::Cow<'a, str> {
         match self {
             Self::ReverseBoss(_) => word.chars().rev().collect::<String>().into(),
@@ -72,14 +72,13 @@ pub fn is_boss_wave(wave_number: u32) -> bool {
     wave_number > 0 && wave_number % BOSS_EVERY_N_WAVES == 0
 }
 
-/// Sélectionne le type de boss prévu pour la vague.
+// Sélectionne le type de boss prévu pour la vague
 pub fn boss_kind_for_wave(wave_number: u32) -> VirusKind {
     if !is_boss_wave(wave_number) {
-        return VirusKind::Boss;
+        return VirusKind::Boss; // devrait renvoyer une erreur
     }
     let boss_index = wave_number / BOSS_EVERY_N_WAVES;
-    // Rotation volontairement asymétrique: premier boss toujours classique,
-    // puis alternance Summoner/Reverse pour varier le rythme des vagues boss.
+    // Premier boss toujours classique puis alternance Summoner/Reverse
     if boss_index == 1 {
         VirusKind::Boss
     } else if boss_index % 2 == 0 {
@@ -89,21 +88,18 @@ pub fn boss_kind_for_wave(wave_number: u32) -> VirusKind {
     }
 }
 
-/// Premier mot attribué au boss à sa création.
+// Premier mot attribué au boss à sa création.
 pub fn first_boss_word(wave_number: u32, kind: VirusKind) -> String {
     get_boss_word(kind, wave_number, 0)
 }
 
-/// Construction des sbires convoqués par le SummonerBoss.
-/// Retourne une liste de (position, mot) prête à être transformée en VirusEntry.
-pub fn build_summoned_minions(
-    wave_number: u32,
-    cycle: usize,
-    center: macroquad::prelude::Vec2,
-) -> Vec<(macroquad::prelude::Vec2, String)> {
+// Construction des sbires convoqués par le SummonerBoss
+// Retourne une liste de (position, mot) prête à être transformée en VirusEntry
+pub fn build_summoned_minions(wave_number: u32, cycle: usize, center: macroquad::prelude::Vec2) 
+-> Vec<(macroquad::prelude::Vec2, String)> {
     let mut minions = Vec::with_capacity(SUMMONER_BOSS_MINIONS_PER_CYCLE);
     for i in 0..SUMMONER_BOSS_MINIONS_PER_CYCLE {
-        // Répartition uniforme sur 2π pour entourer le boss proprement.
+        // Répartition uniforme sur 2π pour entourer le boss
         let angle = (i as f32 / SUMMONER_BOSS_MINIONS_PER_CYCLE as f32) * std::f32::consts::TAU;
         let dir = macroquad::prelude::Vec2::new(angle.cos(), angle.sin());
         let position = center + dir * SUMMONER_RADIUS;
@@ -113,18 +109,18 @@ pub fn build_summoned_minions(
     minions
 }
 
-/// Résultat d'une complétion de mot pour le SummonerBoss.
+// Résultat d'une complétion de mot pour le SummonerBoss
 pub enum SummonerResult {
-    /// Le boss convoque une nouvelle vague de sbires (cycle n).
+    // Le boss convoque une nouvelle vague de sbires (cycle n)
     SpawnMinions(usize),
-    /// Le boss passe au mot suivant sans convoquer.
+    // Le boss passe au mot suivant
     NextWord,
-    /// Le boss est mort.
+    // Le boss est mort
     Killed,
 }
 
-/// Appelé quand un mot de boss classique (Boss ou ReverseBoss) est complété.
-/// Retourne true si le boss est mort, false si le boss passe au mot suivant.
+// Appelé quand un mot de boss classique (Boss ou ReverseBoss) est complété
+// Retourne true si le boss est mort, false si le boss passe au mot suivant
 pub fn on_boss_word_complete(
     state: &mut BossState,
     wave_number: u32,
@@ -145,7 +141,7 @@ pub fn on_boss_word_complete(
     }
 }
 
-/// Idem pour ReverseBoss (même logique, variant séparé pour extensibilité future).
+// Idem pour ReverseBoss (même logique, variant séparé pour extension future)
 pub fn on_reverse_boss_word_complete(
     state: &mut ReverseBossState,
     wave_number: u32,
@@ -165,7 +161,7 @@ pub fn on_reverse_boss_word_complete(
     }
 }
 
-/// Appelé quand le mot du SummonerBoss est complété.
+/// Appelé quand le mot du SummonerBoss est complété
 pub fn on_summoner_word_complete(
     state: &mut SummonerState,
     wave_number: u32,
@@ -174,7 +170,7 @@ pub fn on_summoner_word_complete(
     typing_out: &mut TypingState,
 ) -> SummonerResult {
     if has_alive_summoned {
-        // Invincible tant qu'un sbire est en vie — on reset juste le mot
+        // Invincible tant qu'un sbire est en vie, on reset juste le mot
         advance_summoner_word(state, wave_number, word_out, typing_out);
         SummonerResult::NextWord
     } else if state.spawn_cycles_done < summoner_boss_cycles_for_wave(wave_number) {
@@ -182,32 +178,32 @@ pub fn on_summoner_word_complete(
         advance_summoner_word(state, wave_number, word_out, typing_out);
         SummonerResult::SpawnMinions(state.spawn_cycles_done)
     } else {
-        // Tous les cycles épuisés + plus de sbires → mort
+        // Tous les cycles épuisés + plus de sbires : mort
         SummonerResult::Killed
     }
 }
 
 
-/// Fait évoluer le mot courant du SummonerBoss après une interaction.
+// Fait évoluer le mot courant du SummonerBoss après une interaction
 fn advance_summoner_word(
     state: &mut SummonerState,
     wave_number: u32,
     word_out: &mut String,
     typing_out: &mut TypingState,
 ) {
-    // Le boss change de mot à chaque complétion pour éviter un lock sur un seul pattern.
+    // Le boss change de mot à chaque complétion pour éviter un lock sur un seul pattern
     state.phase += 1;
     let next = get_boss_word(VirusKind::SummonerBoss, wave_number, state.phase);
     *word_out = next.clone();
     *typing_out = TypingState::new(next);
 }
 
-/// Retourne un mot de boss déterministe pour la vague/phase.
+// Retourne un mot de boss déterministe pour la vague/phase
 fn get_boss_word(kind: VirusKind, wave_number: u32, phase: usize) -> String {
     match kind {
         VirusKind::SummonerBoss => {
             // Offset fixe pour éviter que les boss piochent les mêmes mots
-            // que les ennemis standards à seed équivalente.
+            // que les ennemis standards à seed équivalente
             WordList::pick(Difficulty::Hard, wave_number as usize + SUMMONER_BOSS_SEED_OFFSET + phase).to_string()
         }
         VirusKind::ReverseBoss => {
@@ -219,21 +215,21 @@ fn get_boss_word(kind: VirusKind, wave_number: u32, phase: usize) -> String {
     }
 }
 
-/// Calcule le nombre de mots à enchaîner pour un ReverseBoss.
+// Calcule le nombre de mots à enchaîner pour un ReverseBoss
 fn reverse_boss_words_for_wave(wave_number: u32) -> usize {
     // Le scaling démarre à la vague 15 (première apparition du ReverseBoss).
     REVERSE_BOSS_BASE_WORDS + (wave_number.saturating_sub(15) / 10) as usize
 }
 
-/// Calcule le nombre de cycles d'invocation pour un SummonerBoss.
+// Calcule le nombre de cycles d'invocation pour un SummonerBoss
 fn summoner_boss_cycles_for_wave(wave_number: u32) -> usize {
-    // Un cycle supplémentaire tous les 10 niveaux après la vague 10.
+    // Un cycle supplémentaire tous les 10 niveaux après la vague 10
     SUMMONER_BOSS_BASE_CYCLES + (wave_number.saturating_sub(10) / 10) as usize
 }
 
-/// Sélectionne un mot de sbire à partir d'une seed stable.
+// Sélectionne un mot de sbire à partir d'une seed stable
 fn summoned_minion_word(wave_number: u32, cycle: usize, idx: usize) -> &'static str {
-    // Seed déterministe: même vague/cycle -> mêmes mots, utile pour l'équilibrage.
+    // Seed déterministe: même vague/cycle -> mêmes mots, utile pour l'équilibrage
     let seed = wave_number as usize + cycle * SUMMONER_BOSS_MINIONS_PER_CYCLE + idx;
     WordList::pick(Difficulty::Easy, seed)
 }

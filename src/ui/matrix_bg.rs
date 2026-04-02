@@ -18,12 +18,12 @@ pub struct MatrixBackground {
 }
 
 impl MatrixBackground {
-    // Crée un fond vide; les colonnes sont allouées dynamiquement selon l'écran.
+    // Crée un fond vide; les colonnes sont allouées dynamiquement selon l'écran
     pub fn new() -> Self {
         Self { streams: Vec::new() }
     }
 
-    // Garantit qu'il y a assez de colonnes pour couvrir toute la largeur visible.
+    // Garantit qu'il y a assez de colonnes pour couvrir toute la largeur visible
     fn ensure_coverage(&mut self) {
         let spacing = 20.0;
         let needed = (screen_width() / spacing).ceil() as usize;
@@ -48,7 +48,7 @@ impl MatrixBackground {
         }
     }
 
-    // Rend toutes les colonnes du fond Matrix.
+    // Rend toutes les colonnes du fond Matrix
     pub fn draw(&self, assets: &GameAssets) {
         for stream in &self.streams {
             stream.draw(assets);
@@ -57,7 +57,7 @@ impl MatrixBackground {
 }
 
 impl MatrixStream {
-    // Construit une colonne avec une longueur et une vitesse aléatoires.
+    // Construit une colonne avec une longueur et une vitesse aléatoires
     fn new(x: f32, start_y: f32) -> Self {
         let mut entities = Vec::new();
         let count = rand::gen_range(8, 25);
@@ -75,7 +75,7 @@ impl MatrixStream {
         Self { entities }
     }
 
-    // Fait défiler la colonne et renouvelle périodiquement ses symboles.
+    // Fait défiler la colonne et renouvelle périodiquement ses symboles
     fn update(&mut self, dt: f32) {
         for e in &mut self.entities {
             e.y += e.speed * dt;
@@ -102,7 +102,7 @@ impl MatrixStream {
         }
     }
 
-    // Rend la traînée avec une opacité décroissante vers la queue.
+    // Rend la traînée avec une opacité décroissante vers la queue
     fn draw(&self, assets: &GameAssets) {
         for (i, e) in self.entities.iter().enumerate() {
             let alpha = 1.0 - (i as f32 / self.entities.len() as f32);
