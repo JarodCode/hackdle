@@ -122,14 +122,38 @@ pub fn draw_wave(
         let y = entry.virus.position.y - entry.virus.radius() - 8.0 + offset_y;
 
         if entry.active {
-            let visible = entry.behavior.visual_word(entry.typing.remaining_part());
-            draw_virus_word(
-                entry.typing.typed_part(),
-                &visible,
-                x, y,
-                Some(&assets.font),
-            );
+            if matches!(entry.virus.kind, crate::core::virus::VirusKind::ReverseBoss) {
+                let full = entry.behavior.visual_word(&entry.virus.word);
+                
+                // 1) Mot inversé complet
+                draw_virus_word("", &full, x, y, Some(&assets.font));
+
+                // 2) Partie tapée inversée (overlay vert, aligné à droite)
+                let typed_rev: String = entry.typing.typed_part().chars().rev().collect();
+                if !typed_rev.is_empty() {
+                    let font_size = 18u16;
+                    let full_w = measure_text(&full, Some(&assets.font), font_size, 1.0).width;
+                    let typed_w = measure_text(&typed_rev, Some(&assets.font), font_size, 1.0).width;
+
+                    draw_text_ex(
+                        &typed_rev,
+                        x + full_w - typed_w, // L'alignement à droite intelligent
+                        y,
+                        TextParams { font_size, font: Some(&assets.font), color: GREEN, ..Default::default() },
+                    );
+                }
+            } else {
+                // Le comportement normal pour tous les autres virus
+                let visible = entry.behavior.visual_word(entry.typing.remaining_part());
+                draw_virus_word(
+                    entry.typing.typed_part(),
+                    &visible,
+                    x, y,
+                    Some(&assets.font),
+                );
+            }
         } else {
+            // Quand le virus n'est pas ciblé
             let visible = entry.behavior.visual_word(&entry.virus.word);
             draw_virus_word("", &visible, x, y, Some(&assets.font));
         }
