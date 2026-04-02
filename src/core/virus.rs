@@ -5,12 +5,13 @@ pub enum VirusKind {
     Fast, // rapide, petit mot
     Classic, // vitesse moyenne, mot moyen
     Heavy, // lent, mot compliqué
-    Boss,
-    SummonerBoss,
-    ReverseBoss,
+    Boss, // Boss basique : plusieurs mots
+    SummonerBoss, // Summoner : à chaque mot invoque des virus
+    ReverseBoss, // Reverse : plusieurs mots à l'envers
 }
 
 impl VirusKind {
+    // Définit le profil de base de chaque type (vitesse, points de vie (pv inutile pour le moment))
     pub fn base_stats(self) -> (f32, u32) {
         match self {
             Self::Fast => (120.0, 1),
@@ -22,17 +23,19 @@ impl VirusKind {
         }
     }
 
+    // Rayon utilisé pour hitbox et rendu
     pub fn radius(self) -> f32 {
         match self {
-            Self::Fast => 12.0,
-            Self::Classic => 18.0,
-            Self::Heavy => 26.0,
-            Self::Boss => 40.0,
-            Self::SummonerBoss => 44.0,
-            Self::ReverseBoss => 42.0,
+            Self::Fast => 40.0,
+            Self::Classic => 45.0,
+            Self::Heavy => 55.0,
+            Self::Boss => 70.0,
+            Self::SummonerBoss => 70.0,
+            Self::ReverseBoss => 70.0,
         }
     }
 
+    // Couleur de référence pour VFX et visuel
     pub fn color(self) -> Color {
         match self {
             Self::Fast => GREEN,
@@ -49,11 +52,12 @@ pub struct Virus {
     pub position: Vec2,
     pub kind: VirusKind,
     pub speed: f32, // pixels par seconde
-    pub health: u32,
+    pub health: u32, // Inutile en l'état actuel
     pub word: String, // mot à taper pour éliminer
 }
 
 impl Virus {
+    // Crée un virus prêt à être simulé dans une vague
     pub fn new(position: Vec2, kind: VirusKind, word: String) -> Self {
         let (speed, health) = kind.base_stats();
 
@@ -62,21 +66,19 @@ impl Virus {
 
     pub fn update(&mut self, dt: f32, target: Vec2) {
         let direction = (target - self.position).normalize_or_zero();
+        // Garantit un déplacement stable même si la cible est exactement sur la même position
         self.position += direction * self.speed * dt; // on déplace le virus à vitesse .speed (dt : rend le déplacement indépendant du framerate)
     }
 
-    pub fn draw(&self, assets: &crate::core::assets::GameAssets) {
-        self.draw_with_offset(assets, 0.0, 0.0, WHITE);
-    }
-
-    pub fn draw_with_offset(&self, assets: &crate::core::assets::GameAssets, offset_x: f32, offset_y: f32, color_override: Color) {
+    // Point d'entrée de rendu avec offset global et teinte optionnelle (devrait être déléguer à renderer)
+    pub fn draw_with_offset(&self, assets: &crate::ui::assets::GameAssets, offset_x: f32, offset_y: f32, color_override: Color) {
         let tex = match self.kind {
             VirusKind::Fast => &assets.virus_fast,
             VirusKind::Classic => &assets.virus_classic,
             VirusKind::Heavy => &assets.virus_heavy,
-            VirusKind::Boss => &assets.virus_boss,
-            VirusKind::SummonerBoss => &assets.virus_boss,
-            VirusKind::ReverseBoss => &assets.virus_boss,
+            VirusKind::Boss => &assets.boss_python,
+            VirusKind::SummonerBoss => &assets.boss_c,
+            VirusKind::ReverseBoss => &assets.boss_rust,
         };
 
         let radius = self.radius();
@@ -106,21 +108,17 @@ impl Virus {
         self.health > 0
     }
 
-    pub fn take_damage(&mut self, amount: u32) {
-        self.health = self.health.saturating_sub(amount);
-    }
-
     pub fn kill(&mut self) {
         self.health = 0;
     }
 
-    // Distance au centre — utile pour savoir si le virus a atteint le joueur
+    // Distance au centre, utile pour savoir si le virus a atteint le joueur
     pub fn distance_to(&self, target: Vec2) -> f32 {
         (target - self.position).length()
     }
 
     // Fait rebondir le virus quand il touche le joueur
-    pub fn bounce_away(&mut self, target: Vec2) {
+    pub fn bounce_away(&mut self, target: Vec2) { // mauvais payeur
         let direction = (self.position - target)
             .try_normalize()
             .unwrap_or(Vec2::new(1.0, 0.0)); // None = (1,0) (droite), cas où le virus est exactement sur le joueur

@@ -11,16 +11,18 @@ pub struct TypingState {
 }
 
 impl TypingState {
+    // Initialise un état de frappe pour un mot cible.
     pub fn new(target: String) -> Self {
         Self { target, progress: 0 }
     }
 
+    // Valide un caractère saisi et retourne le résultat de la tentative.
     pub fn type_char(&mut self, c: char) -> TypingResult {
-         // chars : transforme le String en itérateur sur les caractères + nth : donne la le char à la pos .progress
+        // Compare la saisie à la prochaine lettre attendue.
         let expected = self.target.chars().nth(self.progress);
 
         match expected {
-            Some(e) if e == c => { // if : Double condition sur ce cas du match
+            Some(e) if e == c => {
                 self.progress += 1;
                 if self.progress == self.target.len() {
                     TypingResult::Complete
@@ -42,6 +44,7 @@ impl TypingState {
         &self.target[self.progress..]
     }
 
+    // Annule la progression courante sur le mot.
     pub fn reset(&mut self) {
         self.progress = 0;
     }

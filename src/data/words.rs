@@ -22,7 +22,7 @@ impl WordList {
     }
 }
 
-// Mots courts 2-4 lettres — rapides à taper
+// Mots courts 2-3 lettres
 static EASY_WORDS: &[&str] = &[
     "bit", "bug", "cpu", "ram", "log", "hex", "key", "net",
     "run", "ssh", "tcp", "udp", "vim", "www", "zip", "api",
@@ -31,7 +31,7 @@ static EASY_WORDS: &[&str] = &[
     "var", "xml", "yes", "zsh", "awk", "cat", "cut", "dig",
 ];
 
-// Mots moyens 5-7 lettres — fluides à taper
+// Mots moyens 5-7 lettres
 static MEDIUM_WORDS: &[&str] = &[
     "array", "cache", "class", "clone", "crash", "debug", "event",
     "fetch", "frame", "index", "input", "layer", "linux", "login",
@@ -42,7 +42,7 @@ static MEDIUM_WORDS: &[&str] = &[
     "delta", "emacs", "errno", "forge", "grant", "guard", "hooks",
 ];
 
-// Mots longs 8+ lettres — réservés Heavy et Boss
+// Mots longs 8+ lettres
 static HARD_WORDS: &[&str] = &[
     "assembly", "callback", "checksum", "compiler", "database",
     "deadlock", "encoding", "ethernet", "firewall", "firmware",

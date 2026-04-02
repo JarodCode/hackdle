@@ -2,10 +2,10 @@ use std::cmp::Ordering;
 
 use macroquad::prelude::*;
 
-use crate::accounts::UserProfile;
-use crate::core::assets::GameAssets;
+use crate::data::UserProfile;
+use crate::ui::assets::GameAssets;
 use crate::core::player::Player;
-use crate::core::vfx::VfxManager;
+use crate::ui::vfx::VfxManager;
 use crate::core::wave::Wave;
 use crate::data::{SaveData, Storage};
 use crate::ui::renderer;
@@ -20,30 +20,39 @@ pub enum GameState {
     MainMenu,
     InWave,
     BetweenWaves,
-    Shop,
+    Shop, // future implémentation
     GameOver,
 }
 
 pub struct Game {
     state: GameState,
     player: Player,
-    wave: Option<Wave>,
+    wave: Option<Wave>, // Some(wave) si InWave None Sinon
     wave_number: u32,
-    save_data: SaveData,
+    save_data: SaveData, // Stock les datas dans un fichier
     leaderboard: Vec<UserProfile>,
     current_user: Option<usize>,
     login_input: String,
-    run_recorded: bool,
+    run_recorded: bool, // Garde-fou pour n'enregistrer le score d'une run qu'une seule fois
     assets: Rc<GameAssets>,
     vfx: VfxManager,
-    matrix_bg: crate::core::matrix_bg::MatrixBackground,
+    matrix_bg: crate::ui::matrix_bg::MatrixBackground,
 }
 
 impl Game {
+    // Charge les ressources et restaure les profils au lancement
     pub async fn new() -> Self {
         let assets = Rc::new(GameAssets::load().await);
         let save_data = Storage::load();
         let leaderboard = Self::build_leaderboard(&save_data.profiles);
+
+        macroquad::audio::play_sound(
+            &assets.bg_music,
+            macroquad::audio::PlaySoundParams {
+                looped: true, // Pour que ca boucle
+                volume: 0.15,  // Volume bas pour qu'on entende bien les lasers et les erreurs
+            },
+        );
 
         Self {
             state: GameState::Login,
@@ -57,10 +66,11 @@ impl Game {
             run_recorded: true,
             assets,
             vfx: VfxManager::new(),
-            matrix_bg: crate::core::matrix_bg::MatrixBackground::new(),
+            matrix_bg: crate::ui::matrix_bg::MatrixBackground::new(),
         }
     }
 
+    // Tick principal: met à jour l'état actif puis les effets visuels
     pub fn update(&mut self, dt: f32) {
         self.matrix_bg.update(dt);
         match self.state {
@@ -75,9 +85,11 @@ impl Game {
         self.vfx.update(dt);
     }
 
+    // Passe de rendu principal avec background, scène et VFX
     pub fn draw(&self) {
         clear_background(BLACK);
         
+        // Offset global appliqué à la scène pour matérialiser le screen shake
         let shake = self.vfx.get_shake_offset();
 
 
@@ -97,6 +109,7 @@ impl Game {
 
     // --- Update par état ---
 
+    // Gère la saisie du pseudo utilisateur
     fn update_login(&mut self, _dt: f32) {
         while let Some(c) = get_char_pressed() {
             if Self::is_allowed_username_char(c) && self.login_input.len() < MAX_USERNAME_LEN {
@@ -109,7 +122,7 @@ impl Game {
         }
 
         if is_key_pressed(KeyCode::Escape) {
-            self.login_input.clear();
+            std::process::exit(0);
         }
 
         if is_key_pressed(KeyCode::Enter) {
@@ -117,6 +130,7 @@ impl Game {
         }
     }
 
+    // Gère les actions du menu principal (start, logout, quit)
     fn update_menu(&mut self, _dt: f32) {
         if self.current_user.is_some() && is_key_pressed(KeyCode::Enter) {
             self.reset_run_state();
@@ -126,8 +140,13 @@ impl Game {
         if is_key_pressed(KeyCode::L) {
             self.logout();
         }
+
+        if is_key_pressed(KeyCode::Escape) {
+            std::process::exit(0);
+        }
     }
 
+    // Boucle gameplay pendant une vague active
     fn update_wave(&mut self, dt: f32) {
         self.player.update(dt);
 
@@ -143,7 +162,7 @@ impl Game {
                 wave.type_char(c, &mut self.vfx, player_pos, &self.assets);
             }
         }
-        let mut hits = 0u32;
+        let hits = 0u32;
 
         if let Some(wave) = &mut self.wave {
             wave.update(dt, player_pos);
@@ -151,8 +170,10 @@ impl Game {
             // Vérifie si un virus a atteint le joueur
             let mut damage_taken = 0u32;
             for entry in wave.entries.iter_mut() {
-                let contact_radius = entry.virus.radius() + 20.0;
+                let contact_radius = entry.virus.radius() + 75.0;
                 if entry.virus.distance_to(player_pos) < contact_radius {
+                    // Le rebond sert d'anti-collision continue pour éviter de vider
+                    // toute la vie en restant collé au joueur sur plusieurs frame
                     damage_taken += 20;
                     entry.virus.bounce_away(player_pos);
                 }
@@ -160,11 +181,20 @@ impl Game {
 
             if damage_taken > 0 {
                 self.player.take_damage(damage_taken);
+                self.vfx.trigger_shake(10.0, 0.3);
+
+                macroquad::audio::play_sound(
+                    &self.assets.sound_hit,
+                    macroquad::audio::PlaySoundParams {
+                        looped: false,
+                        volume: 0.7,
+                    },
+                );
             }
 
             // La mort prend la priorité sur la fin de vague
             if !self.player.is_alive() {
-                self.state = GameState::GameOver;
+                self.handle_player_defeat();
             } else if wave.is_complete() {
                 self.state = GameState::BetweenWaves;
             }
@@ -180,6 +210,7 @@ impl Game {
         }
     }
 
+    // Écran de transition entre deux vagues
     fn update_between_waves(&mut self, _dt: f32) {
         if is_key_pressed(KeyCode::Enter) {
             self.start_wave();
@@ -190,8 +221,10 @@ impl Game {
         }
     }
 
+    // Placeholder boutique (non implémentée pour l'instant)
     fn update_shop(&mut self, _dt: f32) {}
 
+    // Gère les entrées disponibles après défaite
     fn update_game_over(&mut self, _dt: f32) {
         if is_key_pressed(KeyCode::Enter) {
             self.reset_run_state();
@@ -201,10 +234,15 @@ impl Game {
         if is_key_pressed(KeyCode::L) {
             self.logout();
         }
+
+        if is_key_pressed(KeyCode::Escape) {
+            std::process::exit(0);
+        }
     }
 
-    // --- Draw par état ---
+    // --- Draw par état --- (devrait être dans renderer)
 
+    // Écran de login + top leaderboard 
     fn draw_login(&self) {
         draw_text_ex(
             "HACKDLE / LOGIN",
@@ -232,6 +270,7 @@ impl Game {
         renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
     }
 
+    // Écran d'accueil avant lancement de run
     fn draw_menu(&self) {
         let center_y = screen_height() / 2.0;
         let message = self
@@ -246,10 +285,17 @@ impl Game {
             center_y + 32.0,
             TextParams { font_size: 20, font: Some(&self.assets.font), color: GRAY, ..Default::default() },
         );
+        draw_text_ex(
+            "PRESS <ESC> TO TERMINATE",
+            20.0,
+            center_y + 64.0,
+            TextParams { font_size: 20, font: Some(&self.assets.font), color: DARKGRAY, ..Default::default() },
+        );
 
         renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
     }
 
+    // Rendu de la scène de combat et HUD
     fn draw_wave(&self, offset: Vec2) {
         if let Some(wave) = &self.wave {
             wave.draw(&self.assets, offset);
@@ -258,6 +304,7 @@ impl Game {
         renderer::draw_hud(&self.player, self.wave_number, Some(&self.assets.font));
     }
 
+    // Écran de validation de fin de vague
     fn draw_between_waves(&self) {
         let text = format!(
             "WAVE_{:03} CLEARED. PRESS <ENTER> TO PROCEED. <ESC> TO ABORT.",
@@ -267,8 +314,10 @@ impl Game {
         renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
     }
 
+    // Placeholder boutique (non implémentée pour l'instant)
     fn draw_shop(&self) {}
 
+    // Overlay de fin de partie avec actions rapides
     fn draw_game_over(&self) {
         // 1. Assombrir tout l'écran avec un filtre semi-transparent
         draw_rectangle(0.0, 0.0, screen_width(), screen_height(), Color::new(0.0, 0.0, 0.0, 0.8));
@@ -299,9 +348,11 @@ impl Game {
         // 4. Options d'action ("Boutons")
         let option1 = "> PRESS [ENTER] TO INITIALIZE NEW RUN <";
         let option2 = "PRESS [L] TO DISCONNECT AGENT";
+        let option3 = "PRESS [ESC] TO QUIT SYSTEM";
 
         let op1_dim = measure_text(option1, Some(&self.assets.font), 24, 1.0);
         let op2_dim = measure_text(option2, Some(&self.assets.font), 20, 1.0);
+        let op3_dim = measure_text(option3, Some(&self.assets.font), 20, 1.0);
 
         // Effet de clignotement fluide pour "Play Again"
         let alpha = (get_time() * 4.0).sin().abs() as f32; // Oscille entre 0.0 et 1.0
@@ -322,11 +373,19 @@ impl Game {
             TextParams { font_size: 20, font: Some(&self.assets.font), color: GRAY, ..Default::default() }
         );
 
+        draw_text_ex(
+            option3,
+            center_x - op3_dim.width / 2.0,
+            center_y + 160.0,
+            TextParams { font_size: 20, font: Some(&self.assets.font), color: RED, ..Default::default() }
+        );
+
         renderer::draw_scoreboard(&self.leaderboard, "TOP AGENTS", 6, Some(&self.assets.font));
     }
 
     // --- Helpers ---
 
+    // Démarre une nouvelle vague si un profil est actif.
     fn start_wave(&mut self) {
         if self.current_user.is_none() {
             return;
@@ -338,6 +397,7 @@ impl Game {
         self.state = GameState::InWave;
     }
 
+    // Valide/crée le profil puis bascule vers le menu principal
     fn handle_login_submit(&mut self) {
         let trimmed = self.login_input.trim();
         if trimmed.is_empty() {
@@ -371,16 +431,19 @@ impl Game {
         self.state = GameState::MainMenu;
     }
 
+    // Recalcule le classement trié depuis les profils sauvegardés
     fn refresh_leaderboard(&mut self) {
         self.leaderboard = Self::build_leaderboard(&self.save_data.profiles);
     }
 
+    // Persiste l'état global des profils sur disque
     fn persist_save(&self) {
         if let Err(err) = Storage::save(&self.save_data) {
             eprintln!("Impossible d'enregistrer les profils: {:?}", err);
         }
     }
 
+    // Enregistre la performance de la run courante une seule fois
     fn record_current_run(&mut self) {
         if self.run_recorded {
             return;
@@ -397,12 +460,14 @@ impl Game {
         self.run_recorded = true;
     }
 
+    // Renvoie le pseudo du profil actif
     fn current_username(&self) -> Option<&str> {
         self.current_user
             .and_then(|idx| self.save_data.profiles.get(idx))
             .map(|profile| profile.username.as_str())
     }
 
+    // Réinitialise tous les éléments liés à une run
     fn reset_run_state(&mut self) {
         self.wave_number = 0;
         self.wave = None;
@@ -410,6 +475,7 @@ impl Game {
         self.run_recorded = true;
     }
 
+    // Centralise les effets de défaite et la transition d'état
     fn handle_player_defeat(&mut self) {
         macroquad::audio::play_sound(
             &self.assets.sound_game_over,
@@ -424,13 +490,16 @@ impl Game {
         self.state = GameState::GameOver;
     }
 
+    // Déconnecte le profil courant et revient à l'écran de login
     fn logout(&mut self) {
         self.current_user = None;
         self.login_input.clear();
         self.reset_run_state();
+        while let Some(_) = get_char_pressed() {}
         self.state = GameState::Login;
     }
 
+    // Construit le classement affiché à partir des profils
     fn build_leaderboard(source: &[UserProfile]) -> Vec<UserProfile> {
         let mut entries = source.to_vec();
         entries.sort_by(|a, b| {
@@ -446,6 +515,7 @@ impl Game {
         entries
     }
 
+    // Contrôle les caractères autorisés dans le pseudo
     fn is_allowed_username_char(c: char) -> bool {
         c.is_ascii_alphanumeric() || c == '_' || c == '-'
     }

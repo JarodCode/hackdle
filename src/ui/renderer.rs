@@ -1,16 +1,17 @@
 use macroquad::prelude::*;
 
-use crate::accounts::UserProfile;
+use crate::data::UserProfile;
+use crate::ui::assets::GameAssets;
 use crate::core::player::Player;
+use crate::core::wave::VirusEntry;
 
-// Toutes les fonctions ici sont du rendu pur — aucune logique métier,
-// aucune mutation d'état. Uniquement des draw_*.
-
+// Point d'entrée HUD: intégrité système + identifiant de vague
 pub fn draw_hud(player: &Player, wave_number: u32, font: Option<&Font>) {
     draw_health_bar(player, font);
     draw_wave_number(wave_number, font);
 }
 
+// Barre de vie textuelle + visuelle avec code couleur par seuil
 fn draw_health_bar(player: &Player, font: Option<&Font>) {
     let x = 20.0;
     let y = 20.0;
@@ -28,31 +29,23 @@ fn draw_health_bar(player: &Player, font: Option<&Font>) {
     };
 
     let text = format!("SYS.INTEGRITY {:03}%", player.health.0);
-    
     draw_text_ex(
         &text,
         x,
         y + 16.0,
-        TextParams {
-            font_size: 20,
-            font,
-            color,
-            ..Default::default()
-        },
+        TextParams { font_size: 20, font, color, ..Default::default() },
     );
 
     let bar_width = 200.0;
     let bar_height = 10.0;
     let bar_y = y + 24.0;
-    
-    // Background bar
+
     draw_rectangle(x, bar_y, bar_width, bar_height, DARKGRAY);
-    // Active health
     draw_rectangle(x, bar_y, bar_width * health_ratio, bar_height, color);
-    // Outline
     draw_rectangle_lines(x, bar_y, bar_width, bar_height, 2.0, WHITE);
 }
 
+// Affiche la vague courante dans le coin supérieur droit
 fn draw_wave_number(wave_number: u32, font: Option<&Font>) {
     let text = format!("WAVE_ID: {:03}", wave_number);
     let x = screen_width() - 160.0;
@@ -61,12 +54,7 @@ fn draw_wave_number(wave_number: u32, font: Option<&Font>) {
         &text,
         x,
         y,
-        TextParams {
-            font_size: 20,
-            font,
-            color: WHITE,
-            ..Default::default()
-        },
+        TextParams { font_size: 20, font, color: WHITE, ..Default::default() },
     );
 }
 
@@ -74,10 +62,8 @@ fn draw_wave_number(wave_number: u32, font: Option<&Font>) {
 pub fn draw_virus_word(typed: &str, remaining: &str, x: f32, y: f32, font: Option<&Font>) {
     let font_size = 18.0;
 
-    // Partie déjà tapée en vert
     draw_text_ex(typed, x, y, TextParams { font_size: font_size as u16, font, color: GREEN, ..Default::default() });
 
-    // Mesure la largeur réelle du texte tapé pour positionner le reste
     let typed_width = measure_text(typed, font, font_size as u16, 1.0).width;
     draw_text_ex(remaining, x + typed_width, y, TextParams { font_size: font_size as u16, font, color: WHITE, ..Default::default() });
 }
@@ -107,4 +93,55 @@ pub fn draw_scoreboard(entries: &[UserProfile], title: &str, max_rows: usize, fo
     if entries.is_empty() {
         draw_text_ex("NO_AGENTS_FOUND", x, y + line_height, TextParams { font_size: 18, font, color: GRAY, ..Default::default() });
     }
+}
+
+// --- Rendu de la vague (extrait de wave.rs) ---
+
+// Rend tous les ennemis actifs et leur état de saisie, puis le compteur de progression
+pub fn draw_wave(
+    entries: &[VirusEntry],
+    killed: usize,
+    to_kill: usize,
+    assets: &GameAssets,
+    global_offset: Vec2,
+) {
+    for entry in entries.iter() {
+        let mut offset_x = global_offset.x;
+        let mut offset_y = global_offset.y;
+        let mut color_override = WHITE;
+
+        if entry.glitch_timer > 0.0 {
+            offset_x += rand::gen_range(-5.0, 5.0);
+            offset_y += rand::gen_range(-5.0, 5.0);
+            color_override = if rand::gen_range(0, 2) == 0 { RED } else { BLUE };
+        }
+
+        entry.virus.draw_with_offset(assets, offset_x, offset_y, color_override);
+
+        let x = entry.virus.position.x - 20.0 + offset_x;
+        let y = entry.virus.position.y - entry.virus.radius() - 8.0 + offset_y;
+
+        if entry.active {
+            let visible = entry.behavior.visual_word(entry.typing.remaining_part());
+            draw_virus_word(
+                entry.typing.typed_part(),
+                &visible,
+                x, y,
+                Some(&assets.font),
+            );
+        } else {
+            let visible = entry.behavior.visual_word(&entry.virus.word);
+            draw_virus_word("", &visible, x, y, Some(&assets.font));
+        }
+    }
+
+    draw_kill_counter(killed, to_kill);
+}
+
+// Indicateur global d'avancement de la vague en bas d'écran
+fn draw_kill_counter(killed: usize, to_kill: usize) {
+    let text = format!("{} / {}", killed, to_kill);
+    let x = screen_width() / 2.0 - 30.0;
+    let y = screen_height() - 16.0;
+    draw_text(&text, x, y, 20.0, YELLOW);
 }
