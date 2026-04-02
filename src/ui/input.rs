@@ -1,5 +1,3 @@
-// Zéro import macroquad — logique pure, 100% testable
-
 #[derive(Debug, PartialEq)]
 pub enum TypingResult {
     Correct,   // bonne lettre, mot pas encore fini
@@ -13,11 +11,14 @@ pub struct TypingState {
 }
 
 impl TypingState {
+    // Initialise un état de frappe pour un mot cible.
     pub fn new(target: String) -> Self {
         Self { target, progress: 0 }
     }
 
+    // Valide un caractère saisi et retourne le résultat de la tentative.
     pub fn type_char(&mut self, c: char) -> TypingResult {
+        // Compare la saisie à la prochaine lettre attendue.
         let expected = self.target.chars().nth(self.progress);
 
         match expected {
@@ -33,7 +34,7 @@ impl TypingState {
         }
     }
 
-    // Portion du mot déjà tapée — utile pour le rendu (lettres vertes)
+    // Portion du mot déjà tapée (lettres vertes)
     pub fn typed_part(&self) -> &str {
         &self.target[..self.progress]
     }
@@ -43,6 +44,7 @@ impl TypingState {
         &self.target[self.progress..]
     }
 
+    // Annule la progression courante sur le mot.
     pub fn reset(&mut self) {
         self.progress = 0;
     }
